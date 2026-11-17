@@ -1,0 +1,14 @@
+-- CATATAN RIWAYAT (sengaja tidak mengubah apa pun; hanya `select 1`)
+--
+-- Versi 20261117000001 "schema" sudah tercatat di riwayat migrasi proyek Supabase cloud "PasarNila"
+-- (17 November 2026, rancangan ARCHITECTURE v0.3). Riwayat cloud hanya menyimpan versi dan nama,
+-- tanpa isi SQL, dan file sumbernya tidak pernah ada di repository ini, sehingga isinya tidak dapat
+-- direkonstruksi persis.
+--
+-- File ini ada agar riwayat lokal dan cloud selaras tanpa menulis ulang riwayat cloud
+-- (`supabase migration repair`). Skema yang dihasilkan versi ini diselaraskan ke rancangan v0.4 oleh
+-- migrasi 20261118000001–20261118000006, yang ditulis konvergen: aman dijalankan pada database kosong
+-- maupun pada skema v0.3. Pada database baru, file ini tidak melakukan apa pun.
+--
+-- Lihat ARCHITECTURE.md §8.9 (rekonsiliasi proyek cloud).
+select 1;

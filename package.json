@@ -10,23 +10,32 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "vitest run --config vitest.db.config.mts tests/db/migrations.local.test.ts",
+    "test:db:cloud": "vitest run --config vitest.db.config.mts tests/db/migrations.cloud.test.ts",
+    "test:api:cloud": "vitest run --config vitest.db.config.mts tests/api",
     "check:env": "tsx scripts/check-env.ts",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "db:preflight": "tsx scripts/db-preflight.ts",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run test:db"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.119.0",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
     "@next/env": "16.4.6",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^24.19.2",
+    "@types/pg": "8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "pg": "8.23.1",
+    "supabase": "3.2.0",
     "tailwindcss": "4.3.3",
     "tsx": "4.23.15",
     "typescript": "^5",

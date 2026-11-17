@@ -291,6 +291,65 @@ export function checkEnvironment(source: EnvSource): EnvCheckRow[] {
     rowFromCheck("SUPABASE_DB_PASSWORD", "tooling", false, presence(source, "SUPABASE_DB_PASSWORD")),
   );
 
+  const targetEnvRaw = valueOf(source, "SUPABASE_TARGET_ENV");
+  rows.push(
+    targetEnvRaw === ""
+      ? {
+          name: "SUPABASE_TARGET_ENV",
+          group: "tooling",
+          required: false,
+          status: "kosong",
+          note: "peruntukan proyek belum dinyatakan; migrasi & uji cloud ditahan",
+        }
+      : ["development", "staging", "production"].includes(targetEnvRaw)
+        ? {
+            name: "SUPABASE_TARGET_ENV",
+            group: "tooling",
+            required: false,
+            status: "tersedia",
+            note:
+              targetEnvRaw === "production"
+                ? "production: uji database & penerapan dari laptop ditolak"
+                : `peruntukan: ${targetEnvRaw}`,
+          }
+        : {
+            name: "SUPABASE_TARGET_ENV",
+            group: "tooling",
+            required: false,
+            status: "tidak valid",
+            note: 'hanya "development", "staging", atau "production"',
+          },
+  );
+
+  const dbUrlRaw = valueOf(source, "SUPABASE_DB_URL");
+  let dbUrl: Check<string> = presence(source, "SUPABASE_DB_URL");
+  if (dbUrl.ok) {
+    let matches = false;
+    try {
+      const parsed = new URL(dbUrlRaw);
+      const user = decodeURIComponent(parsed.username);
+      matches =
+        (parsed.protocol === "postgresql:" || parsed.protocol === "postgres:") &&
+        projectRef.ok &&
+        (parsed.hostname === `${projectRefRaw}.supabase.co` ||
+          parsed.hostname === `db.${projectRefRaw}.supabase.co` ||
+          user === `postgres.${projectRefRaw}`);
+    } catch {
+      matches = false;
+    }
+    if (!matches) {
+      dbUrl = {
+        ok: false,
+        status: "tidak valid",
+        reason: "harus connection string postgres untuk SUPABASE_PROJECT_REF yang sama",
+      };
+    }
+  }
+  rows.push(rowFromCheck("SUPABASE_DB_URL", "tooling", false, dbUrl, "berisi kredensial; jangan dibagikan"));
+  rows.push(
+    rowFromCheck("SUPABASE_DB_CA_PATH", "tooling", false, presence(source, "SUPABASE_DB_CA_PATH")),
+  );
+
   const partnerEmail = checkEmail(valueOf(source, "E2E_PARTNER_EMAIL"));
   let outsiderEmail = checkEmail(valueOf(source, "E2E_OUTSIDER_EMAIL"));
   if (partnerEmail.ok && outsiderEmail.ok && partnerEmail.value === outsiderEmail.value) {

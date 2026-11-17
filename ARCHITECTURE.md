@@ -2,9 +2,9 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.4 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
+| Versi dokumen | 0.5 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
 | Tanggal | 18 November 2026 |
-| Status | Usulan, menunggu persetujuan. **Fondasi aplikasi sudah dibuat** (Next.js 16.4.6, fungsi domain murni, validasi konfigurasi, unit test; lihat §19). **Belum ada** migrasi database, koneksi ke database, akun mitra, atau deployment. |
+| Status | Usulan, menunggu persetujuan. **Fondasi aplikasi** dan **6 migrasi v0.4** sudah dibuat; migrasi lulus 86 uji database lokal (PGlite, tanpa Docker). **Belum** diterapkan ke cloud: peruntukan proyek cloud yang ada belum terverifikasi (PRD Q-22). Belum ada deployment. |
 | Dokumen terkait | [`PRD.md`](./PRD.md): kebutuhan produk. ID `A-xx` (asumsi), `Q-xx` (pertanyaan), `AC-xx` (acceptance criteria), dan `BR-xx` (aturan bisnis) merujuk ke PRD. |
 
 Label status yang dipakai sama dengan PRD: **[Dikonfirmasi]**, **[Asumsi A-xx]**, **[Pertanyaan Q-xx]**, **[Saran]**.
@@ -30,9 +30,9 @@ bukan migrasi atau kode final.
 | Validasi | **Zod 4** + parser angka murni | Parser stok/harga format Indonesia ditulis sebagai fungsi murni (§10.2). Zod dipakai untuk validasi konfigurasi lingkungan dan skema form di Server Action. |
 | Render artikel | **react-markdown** tanpa HTML mentah | Format dasar yang aman. HTML/skrip dari input tidak dijalankan (AC-40). |
 | Gambar | **File statis di repo + `next/image`** | Cukup untuk MVP karena mitra tidak mengunggah foto (A-12). Supabase Storage baru dibutuhkan bila mitra perlu mengunggah foto (§14). |
-| Pengujian | **Vitest 5** (unit), **pgTAP via `supabase test db`** (RLS/fungsi DB), **Playwright** (E2E, HP & desktop), **axe-core** (aksesibilitas) | Menguji aturan bisnis di setiap lapisan (§17). |
+| Pengujian | **Vitest 5** (unit), **Vitest + PGlite** (database lokal tanpa Docker), **Vitest + `pg` / `supabase-js`** (database & Data API cloud dev/staging), **Playwright** (E2E, HP & desktop), **axe-core** (aksesibilitas) | Menguji aturan bisnis di setiap lapisan (§17). Laptop pengembang tidak menjalankan Docker. |
+| Tooling DB | **Supabase CLI 3.2.0** (devDependency) + migrasi SQL di repo | Skema dapat direproduksi dan ditinjau lewat Git. Hanya perintah cloud (`db push --remote`, `--dry-run`); tidak memakai `supabase start`/`db reset`. |
 | Package manager | **npm** (`package-lock.json`) | Perintah di dokumen ini memakai `npm run …`. Jangan mencampur dengan lockfile lain. |
-| Tooling DB | **Supabase CLI** + migrasi SQL di repo | Skema dapat direproduksi dan ditinjau lewat Git. |
 | Hosting aplikasi | **Vercel** **[Dikonfirmasi]** | Target deployment yang disepakati. |
 
 ### 1.2 Mengapa usulan awal (Next.js + Supabase + Vercel + Tailwind) dipertahankan
@@ -469,7 +469,7 @@ PasarNila/
 │   │   └── <ts6>_initial_content.sql      # produk "Ikan Nila", 2 artikel placeholder,
 │   │                                      # 1 baris site_settings "Juki Fish Farm" (idempoten)
 │   ├── seed.sql                      # data uji lokal saja; TANPA akun/password
-│   └── tests/                        # pgTAP: RLS, grants, hak EXECUTE fungsi, batas, RPC
+│   └── tests/                        # (tidak dipakai; uji database ada di tests/db, §17.3)
 ├── src/
 │   ├── proxy.ts                      # refresh sesi Supabase; matcher hanya /mitra/:path*
 │   ├── app/
@@ -728,13 +728,13 @@ merujuknya. Aturan Postgres yang menentukan urutan:
 
 **Hak EXECUTE fungsi.** Postgres secara bawaan memberi `EXECUTE` setiap fungsi baru kepada `PUBLIC`. Di
 schema `public`, Supabase juga memberi hak bawaan kepada role `anon` dan `authenticated` (perilaku ini dicek
-ulang saat implementasi dengan `has_function_privilege` di pgTAP). Karena itu setiap fungsi **langsung**
+ulang saat implementasi dengan `has_function_privilege` di uji database). Karena itu setiap fungsi **langsung**
 diikuti `revoke execute … from public, anon, authenticated`, lalu `grant execute` hanya kepada role yang
 memang memerlukannya:
 
 | Fungsi | Schema | Jenis | EXECUTE untuk | Alasan |
 |---|---|---|---|---|
-| `set_updated_at()` | `private` | trigger | Tidak ada role API | Hanya dipanggil trigger. Hak EXECUTE fungsi trigger diperiksa saat `CREATE TRIGGER` (oleh pemilik migrasi), bukan saat trigger berjalan. Dibuktikan oleh uji pgTAP: mitra dapat mengubah artikel walau tidak punya EXECUTE pada fungsi ini. |
+| `set_updated_at()` | `private` | trigger | Tidak ada role API | Hanya dipanggil trigger. Hak EXECUTE fungsi trigger diperiksa saat `CREATE TRIGGER` (oleh pemilik migrasi), bukan saat trigger berjalan. Dibuktikan oleh uji database (lulus di PGlite, 18 Nov 2026): mitra dapat mengubah artikel walau tidak punya EXECUTE pada fungsi ini. |
 | `is_partner_admin()` | `private` | `security definer` | Tidak ada role API | Hanya dipanggil dari fungsi `security definer` lain (berjalan sebagai pemilik). Role API juga tidak diberi `USAGE` pada schema `private`. |
 | `current_user_is_partner()` | `public` | `security definer` | `authenticated` | Dipakai aplikasi saat login (§5.2) **dan** di semua policy RLS khusus mitra. Hanya menjawab tentang pemanggil sendiri. `anon` tidak memerlukannya karena policy yang memanggilnya hanya berlaku `to authenticated`. |
 | `confirm_product_stock_price(...)` | `public` | `security definer` | `authenticated` | Satu-satunya jalur ubah stok/harga. Fungsi menolak akun yang bukan mitra (`42501`). |
@@ -743,8 +743,15 @@ Catatan: *Security Advisor* Supabase dapat menandai fungsi `security definer` ya
 `authenticated` di schema yang diekspos. Untuk dua fungsi di atas hal itu disengaja, dan keduanya memeriksa
 identitas pemanggil di dalam fungsi.
 
-**Verifikasi urutan:** migrasi diterapkan dari nol ke database **lokal** (Supabase CLI + Docker), lalu uji
-pgTAP dijalankan. Proyek remote baru disentuh setelah uji lokal lulus (§16.2).
+**Verifikasi urutan (tanpa Docker):** `npm run test:db` menerapkan seluruh migrasi dari nol ke PGlite
+(Postgres WASM) + shim Supabase, dan juga dari rekonstruksi skema v0.3 cloud, lalu menjalankan uji
+keamanan (§17.3). Proyek cloud dev/staging baru disentuh setelah uji lokal lulus dan target terverifikasi
+(§16.2). Lulus di PGlite membuktikan logika SQL, bukan keadaan cloud.
+
+### 8.9 Rekonsiliasi proyek cloud yang sudah ada
+
+Lihat Lampiran C. Ringkas: cloud berisi skema v0.3 + 4 versi riwayat tanpa isi SQL; repo menyimpan 4 file
+catatan riwayat dengan versi yang sama, lalu 6 migrasi v0.4 yang konvergen.
 
 ---
 
@@ -1096,16 +1103,16 @@ Berlaku untuk stok & harga, artikel, dan nama usaha (PRD FR-33, AC-51, AC-52).
 
 | Batas | Aplikasi (`src/lib/domain/limits.ts`) | Constraint tabel | Pemeriksaan RPC | Uji |
 |---|---|---|---|---|
-| Stok minimum | `0` | `stock_kg BETWEEN 0 AND 100000` | `p_stock_kg < 0` → `stock_out_of_range` | Unit: `-1` ditolak. pgTAP: RPC `-0.01` ditolak |
-| Stok maksimum | `STOCK_MAX_KG = 100000` | (sama) | `p_stock_kg > 100000` → `stock_out_of_range` | Unit: `100000` diterima, `100000,01` ditolak. pgTAP: sama via RPC |
-| Desimal stok | `STOCK_MAX_DECIMALS = 2` | `numeric(10,2)` (membulatkan, jadi **bukan** penjaga) | `p_stock_kg <> round(p_stock_kg, 2)` → `stock_too_many_decimals` | Unit & pgTAP: `1.255` ditolak, tidak menjadi `1.26` |
-| Harga minimum | `0` | `price_per_kg_idr BETWEEN 0 AND 10000000` | `< 0` → `price_out_of_range` | Unit & pgTAP |
-| Harga maksimum | `PRICE_MAX_IDR = 10000000` | (sama) | `> 10000000` → `price_out_of_range` | Unit: `10.000.000` diterima, `10.000.001` ditolak. pgTAP: sama |
-| Harga bulat | parser menolak koma & titik non-ribuan | tipe `integer` | parameter `numeric` + `<> trunc(...)` → `price_not_whole` | pgTAP: RPC `35000.5` ditolak, tidak dibulatkan |
-| NaN / Infinity | parser hanya menerima digit | `BETWEEN` menolak | pemeriksaan rentang menolak | pgTAP: RPC `'NaN'` ditolak |
+| Stok minimum | `0` | `stock_kg BETWEEN 0 AND 100000` | `p_stock_kg < 0` → `stock_out_of_range` | Unit: `-1` ditolak. uji DB: RPC `-0.01` ditolak |
+| Stok maksimum | `STOCK_MAX_KG = 100000` | (sama) | `p_stock_kg > 100000` → `stock_out_of_range` | Unit: `100000` diterima, `100000,01` ditolak. uji DB: sama via RPC |
+| Desimal stok | `STOCK_MAX_DECIMALS = 2` | `numeric(10,2)` (membulatkan, jadi **bukan** penjaga) | `p_stock_kg <> round(p_stock_kg, 2)` → `stock_too_many_decimals` | Unit & uji DB: `1.255` ditolak, tidak menjadi `1.26` |
+| Harga minimum | `0` | `price_per_kg_idr BETWEEN 0 AND 10000000` | `< 0` → `price_out_of_range` | Unit & uji DB |
+| Harga maksimum | `PRICE_MAX_IDR = 10000000` | (sama) | `> 10000000` → `price_out_of_range` | Unit: `10.000.000` diterima, `10.000.001` ditolak. uji DB: sama |
+| Harga bulat | parser menolak koma & titik non-ribuan | tipe `integer` | parameter `numeric` + `<> trunc(...)` → `price_not_whole` | uji DB: RPC `35000.5` ditolak, tidak dibulatkan |
+| NaN / Infinity | parser hanya menerima digit | `BETWEEN` menolak | pemeriksaan rentang menolak | uji DB: RPC `'NaN'` ditolak |
 
 Mengubah A-07 berarti mengubah konstanta aplikasi **dan** membuat migrasi baru untuk constraint + fungsi
-dalam satu perubahan (satu PR). Uji pgTAP memakai angka batas yang sama dengan unit test sehingga
+dalam satu perubahan (satu PR). Uji database (`tests/db`) memakai angka batas yang sama dengan unit test sehingga
 ketidakselarasan terlihat saat CI.
 
 ---
@@ -1449,15 +1456,22 @@ Catatan konfigurasi lokal:
 
 ### 16.2 Database (Supabase)
 
-1. Buat proyek **dev/staging** dan **production** terpisah (lebih aman untuk uji), region Singapura (A-19).
-2. Matikan signup publik, atur kebijakan password, dan set *Site URL* ke URL produksi.
-3. **Uji lokal dulu:** terapkan seluruh migrasi (urutan §8.8) ke Supabase **lokal** dari database kosong
-   dan jalankan pgTAP (`supabase test db`). Remote baru disentuh setelah semuanya lulus.
-4. Sebelum `supabase link` → `supabase db push` ke staging: jalankan `npm run check:env`, pastikan
-   `SUPABASE_PROJECT_REF` cocok dengan host `NEXT_PUBLIC_SUPABASE_URL`, dan pastikan
-   `SUPABASE_ACCESS_TOKEN`/`SUPABASE_DB_PASSWORD` yang terbaca (bisa berasal dari environment sistem)
-   memang milik proyek tujuan. Tinjau daftar migrasi yang akan diterapkan, lalu jalankan pgTAP di staging.
-5. Buat akun mitra + isi `partner_admins` secara manual (§9.6). Di staging, buat juga akun uji
+1. Proyek **dev/staging** dan **production** terpisah. Laptop pengembang hanya terhubung ke dev/staging.
+   Region: A-19 menyarankan Singapura; proyek cloud yang ada saat ini berada di `ap-northeast-1` (Tokyo),
+   lihat PRD Q-22.
+2. Matikan signup publik, atur kebijakan password, dan set *Site URL*. (`supabase/config.toml` tidak
+   otomatis mengubah cloud.)
+3. **Tanpa Docker, uji lokal dulu:** `npm run test:db` (PGlite). Jangan menjalankan `supabase start` atau
+   `db reset`.
+4. Nyatakan peruntukan di `.env.local` (`SUPABASE_TARGET_ENV=development|staging`, `SUPABASE_PROJECT_REF`
+   cocok dengan URL). Jalankan `npm run check:env` dan `npm run db:preflight` (read-only). Pastikan
+   `SUPABASE_ACCESS_TOKEN`/`SUPABASE_DB_PASSWORD` yang dipakai memang milik proyek tujuan; nilai dari
+   environment sistem bisa mengalahkan `.env.local`.
+5. Dry-run: `npx supabase db push --remote=<ref> --dry-run --skip-vault`. Catatan terverifikasi (CLI 3.2.0):
+   riwayat migrasi tidak berubah, tetapi CLI menyetel role sementara `cli_login_postgres` di cloud.
+6. Terapkan: `npx supabase db push --remote=<ref> --skip-vault`, lalu `npm run test:db:cloud` dan
+   `npm run test:api:cloud`.
+7. Buat akun mitra + isi `partner_admins` secara manual (§9.6). Di staging, buat juga akun uji
    "outsider".
 6. Opsi lain: menghubungkan Supabase lewat **integrasi Vercel Marketplace** (env var tersinkron otomatis,
    tagihan lewat Vercel). Pilihan ini diputuskan bersama klien. Periksa env var yang ditambahkan otomatis
@@ -1504,8 +1518,10 @@ Catatan konfigurasi lokal:
 | Jenis | Alat | Lingkup |
 |---|---|---|
 | Unit | Vitest | Parser angka, formatter WIB/rupiah/kg, status stok/harga, normalisasi & tautan WhatsApp, pemilihan templat pesan |
-| Database | pgTAP (`supabase test db`) | RLS per role, column grants, fungsi RPC, constraint |
-| Integrasi/E2E | Playwright pada `next build && next start` + Supabase lokal/staging | Alur publik & panel, HP & desktop |
+| Database (lokal) | Vitest + PGlite + shim Supabase (`npm run test:db`), tanpa Docker | Migrasi dari nol & dari v0.3, RLS per role, column grants, hak EXECUTE, RPC, batas, constraint |
+| Database (cloud) | Vitest + `pg` (`npm run test:db:cloud`), setiap kasus di-ROLLBACK | Kasus yang sama di dev/staging terverifikasi |
+| Data API (cloud) | Vitest + `@supabase/supabase-js` dengan sesi anon/non-mitra/mitra (`npm run test:api:cloud`) | Bukti akses aplikasi lewat PostgREST/Auth sungguhan, tanpa service-role key |
+| Integrasi/E2E | Playwright pada `next build && next start` + Supabase cloud dev/staging | Alur publik & panel, HP & desktop |
 | Aksesibilitas | `@axe-core/playwright` + uji keyboard manual | Semua halaman |
 | Performa | Lighthouse (manual/CI) | Beranda & detail produk (mobile) |
 | Smoke pasca-deploy | Playwright/manual di URL Vercel | Data terbaru, WhatsApp, login |
@@ -1520,7 +1536,7 @@ Catatan konfigurasi lokal:
 | T-04 | Waktu WIB | Unit: `07:05Z` → "…pukul 14.05 WIB", `18:30Z` → tanggal berikutnya 01.30 WIB, `null` → "Belum pernah diperbarui". | AC-07, AC-08 |
 | T-05 | Gagal memuat | Simulasikan DB tidak tersedia → pesan gangguan, tidak ada "Stok habis"/"Belum tersedia", WhatsApp tetap ada. | AC-12 |
 | T-06 | Login & akses terlarang | Tanpa sesi → redirect dari semua `/mitra/*`. Password salah → pesan umum. Akun outsider → ditolak + signOut. Signup via API → ditolak. | AC-17–AC-22 |
-| T-07 | Akses terlarang di DB | pgTAP: `anon` & outsider tidak bisa UPDATE/INSERT/DELETE `products`/`articles`, tidak bisa eksekusi RPC dengan sukses, tidak bisa membaca `partner_admins`. Mitra tidak bisa INSERT/DELETE artikel atau UPDATE kolom selain `title`/`body`. `has_function_privilege`: `anon` tidak punya EXECUTE pada fungsi proyek mana pun; `authenticated` hanya pada `current_user_is_partner` dan `confirm_product_stock_price`; tidak ada role API dengan EXECUTE pada fungsi di schema `private` atau USAGE pada schema `private`. Migrasi diterapkan dari database kosong tanpa error (urutan §8.8). | AC-21, AC-39 |
+| T-07 | Akses terlarang di DB | uji DB (`tests/db`): `anon` & outsider tidak bisa UPDATE/INSERT/DELETE `products`/`articles`, tidak bisa eksekusi RPC dengan sukses, tidak bisa membaca `partner_admins`. Mitra tidak bisa INSERT/DELETE artikel atau UPDATE kolom selain `title`/`body`. `has_function_privilege`: `anon` tidak punya EXECUTE pada fungsi proyek mana pun; `authenticated` hanya pada `current_user_is_partner` dan `confirm_product_stock_price`; tidak ada role API dengan EXECUTE pada fungsi di schema `private` atau USAGE pada schema `private`. Migrasi diterapkan dari database kosong tanpa error (urutan §8.8). | AC-21, AC-39 |
 | T-08 | Simpan stok desimal & harga | `12,5` & `12.5` → 12.50. `35.000` & `Rp 35.000` → 35000. Pesan berhasil memuat angka & waktu. | AC-26, AC-27 |
 | T-09 | Nilai tidak valid | Tabel input dari AC-28 → ditolak di parser/Zod **dan** (via panggilan RPC langsung) di DB. Termasuk `1.255` yang **tidak boleh** dibulatkan diam-diam, harga `35.50` yang **tidak boleh** menjadi `3550`, serta nilai batas di §10.5 (RPC: `100000.01`, `10000001`, `35000.5`, `'NaN'` ditolak; `100000` dan `10000000` diterima). Data & waktu tidak berubah. | AC-28 |
 | T-10 | Gagal simpan yang pasti | Simulasikan respons error berkode dari DB → pesan "Gagal menyimpan. Data sebelumnya tidak berubah.", isian tetap, DB tetap. | AC-29, AC-41 |
@@ -1536,7 +1552,7 @@ Catatan konfigurasi lokal:
 | T-19 | Aksesibilitas | axe tanpa pelanggaran *critical/serious*. Navigasi keyboard penuh di form panel. Pesan hasil simpan terbaca pembaca layar. | AC-43 |
 | T-20 | Indeks | `/mitra/*` `noindex` + tidak di sitemap. `ALLOW_INDEXING=false` → `noindex` global. | AC-44 |
 | T-21 | Logout & sesi | Logout → `/mitra` minta login. Sesi kedaluwarsa saat form terbuka → pesan sesi, data tidak berubah. | AC-23, AC-24 |
-| T-22 | Nama usaha | Unit: validasi nama (kosong, spasi saja, 1 karakter, 81 karakter, baris baru → ditolak). pgTAP: `anon`/outsider tidak bisa UPDATE `site_settings`, mitra hanya bisa UPDATE `business_name`, tidak ada yang bisa INSERT/DELETE. E2E di build produksi **dan** Vercel preview: ganti nama → reload beberapa halaman publik → header, footer, `<title>`, dan `href` WhatsApp memakai nama baru tanpa redeploy. `confirmed_at` produk tetap. Nama berisi `<script>` tampil sebagai teks. Simulasi DB gagal saat cache kosong → nama netral "Ikan Nila", dan nama asli kembali setelah DB pulih. | AC-45–AC-50 |
+| T-22 | Nama usaha | Unit: validasi nama (kosong, spasi saja, 1 karakter, 81 karakter, baris baru → ditolak). uji DB (`tests/db`): `anon`/outsider tidak bisa UPDATE `site_settings`, mitra hanya bisa UPDATE `business_name`, tidak ada yang bisa INSERT/DELETE. E2E di build produksi **dan** Vercel preview: ganti nama → reload beberapa halaman publik → header, footer, `<title>`, dan `href` WhatsApp memakai nama baru tanpa redeploy. `confirmed_at` produk tetap. Nama berisi `<script>` tampil sebagai teks. Simulasi DB gagal saat cache kosong → nama netral "Ikan Nila", dan nama asli kembali setelah DB pulih. | AC-45–AC-50 |
 
 ---
 
@@ -1544,7 +1560,7 @@ Catatan konfigurasi lokal:
 
 | # | Risiko | Mitigasi |
 |---|---|---|
-| RT1 | RLS/grants keliru sehingga data bisa diubah tanpa hak | Deny by default, uji pgTAP per role (T-07) di CI, tinjauan kebijakan sebelum produksi. |
+| RT1 | RLS/grants keliru sehingga data bisa diubah tanpa hak | Deny by default, uji database per role (T-07, `npm run test:db`) di CI, tinjauan kebijakan sebelum produksi. |
 | RT2 | Data produk ter-cache sehingga data lama tampil | Render dinamis + `connection()`, tanpa `'use cache'` untuk produk, uji di build produksi (T-15). |
 | RT3 | Proyek Supabase gratis dijeda karena sepi | Paket berbayar untuk produksi (Q-10). Halaman tetap tampil dengan pesan gangguan + WhatsApp (AC-12). Pemantauan email peringatan Supabase. |
 | RT4 | Pembulatan diam-diam `numeric` (mis. 1.255 → 1.26) | Tolak > 2 desimal di Zod **dan** RPC (T-09). |
@@ -1560,7 +1576,7 @@ Catatan konfigurasi lokal:
 | RT14 | Env var WhatsApp/URL salah di production | Validasi saat build/start + daftar periksa peluncuran + smoke test pasca-deploy. |
 | RT15 | Cache nama usaha tidak terinvalidasi (nama lama tetap tampil), atau fallback ikut ter-cache / tertanam di shell saat build | `updateTag` setelah simpan berhasil **dan** saat pemeriksaan ulang hasil belum pasti, error tidak ditangkap di dalam fungsi ber-cache, build gagal bila `site_settings` tidak terbaca, `cacheLife` sebagai jaring pengaman, uji T-22 di Vercel. Alternatif: baca dinamis + `Suspense` (§12.5). |
 | RT16 | Hasil simpan yang belum pasti dilaporkan sebagai gagal ("tidak berubah") atau berhasil | Klasifikasi pasti/belum pasti (§10.3) + baca ulang dengan baseline (§10.4), uji T-23. |
-| RT17 | Batas stok/harga di server dan database tidak selaras, sehingga panggilan API langsung bisa menyimpan nilai di luar batas | Constraint `BETWEEN` + pemeriksaan RPC dengan angka yang sama dengan `limits.ts`, perubahan dalam satu PR, uji batas di unit test dan pgTAP (§10.5, T-09). |
+| RT17 | Batas stok/harga di server dan database tidak selaras, sehingga panggilan API langsung bisa menyimpan nilai di luar batas | Constraint `BETWEEN` + pemeriksaan RPC dengan angka yang sama dengan `limits.ts`, perubahan dalam satu PR, uji batas di unit test dan uji database (§10.5, T-09). |
 | RT18 | Hak EXECUTE fungsi terlalu luas (bawaan `PUBLIC` / bawaan Supabase) | `revoke` eksplisit setelah setiap fungsi, `grant` hanya ke `authenticated` bila perlu, uji `has_function_privilege` (§8.8, T-07). |
 
 ---
@@ -1572,8 +1588,8 @@ Catatan konfigurasi lokal:
 | 0 | **Gerbang:** PRD & ARCHITECTURE disetujui. Q-10 (akun/biaya) dan Q-01 (varian) dijawab atau default diterima. | Persetujuan tertulis. |
 | 1 | Scaffold Next.js 16 + TypeScript strict + Tailwind v4 + ESLint (non-interaktif), kunci versi, `git init`, `.gitignore`, `.env.example`, Vitest, Playwright, CI dasar (lint, typecheck, unit). | `npm run lint/typecheck/test` lulus di CI. **Sebagian selesai (18 Nov 2026):** semua kecuali Playwright dan CI; lint, typecheck, test, dan `next build` lulus secara lokal. |
 | 2 | Fungsi domain murni + unit test terlebih dulu: parser stok/harga, formatter WIB/rupiah/kg, status produk, WhatsApp (normalisasi, tautan, templat), validasi env. | T-02, T-03, T-04, T-16 (unit) lulus. **Selesai secara lokal (18 Nov 2026).** Validasi nama usaha & artikel (BR-P3, BR-A6) menyusul bersama Server Action. |
-| 3 | Supabase lokal: `supabase init`, migrasi sesuai urutan §8.8 (schema & helper → tabel + RLS → fungsi pemeriksa akses → policy & grant → RPC → konten awal). pgTAP untuk RLS/grants/hak EXECUTE/batas/RPC. | Migrasi berjalan dari nol tanpa error. T-07, T-09 (DB), T-12 (DB) lulus. |
-| 4 | Proyek Supabase staging: `db push`, signup mati, akun mitra uji + outsider, generate tipe TS. | Koneksi dari lokal berhasil. |
+| 3 | Migrasi sesuai urutan §8.8 (schema & helper → tabel + RLS → fungsi pemeriksa akses → policy & grant → RPC → konten awal), konvergen terhadap skema v0.3 cloud (§8.9). Uji database tanpa Docker (PGlite). | Migrasi berjalan dari nol dan dari v0.3 tanpa error. T-07, T-09 (DB), T-12 (DB) lulus. **Selesai secara lokal (18 Nov 2026):** 86 uji PGlite lulus. |
+| 4 | Proyek Supabase dev/staging terverifikasi: preflight + dry-run, `db push --remote`, signup mati, akun mitra uji + outsider, `test:db:cloud`, `test:api:cloud`, generate tipe TS. | Uji cloud lulus. **Belum:** peruntukan proyek belum dinyatakan (PRD Q-22). |
 | 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. |
 | 6 | Autentikasi: klien Supabase, `proxy.ts` (`/mitra/*`), login/logout, `requirePartner()`, halaman akses ditolak. | T-06, T-21 lulus. |
 | 7 | Panel stok & harga: form mobile-first, pratinjau, Server Action → RPC, pesan berhasil/gagal, konfirmasi ulang, dialog harga 0. | T-08–T-13 lulus. |
@@ -1643,3 +1659,21 @@ Platform (dicek ulang saat implementasi karena dapat berubah):
 | 0.1–0.2 | 17 November 2026 | Draf awal arsitektur dan penyesuaian data usaha dari klien. |
 | 0.3 | 17 November 2026 | Nama usaha dapat diganti mitra dari panel (`site_settings`, §8.7, §12.5). |
 | 0.4 | 18 November 2026 | **(1) Urutan migrasi** disusun menurut ketergantungan (§7, §8.8): fungsi pemeriksa akses dibuat sebelum policy RLS yang memakainya; policy memanggil `public.current_user_is_partner()` sehingga fungsi di schema `private` tidak memerlukan hak apa pun dari role API; setiap fungsi langsung dicabut hak EXECUTE-nya dari `public`/`anon`/`authenticated` lalu diberikan hanya ke role yang perlu (§9.3–§9.5). **(2) Hasil simpan belum pasti** (timeout/koneksi terputus) dibedakan dari penolakan yang pasti dan dibaca ulang dengan baseline (§5.3–§5.6, §10.3, §10.4, T-23, RT16). **(3) Parser harga** memvalidasi format sebelum titik dihapus, sehingga `35.50` ditolak (§10.2). **(4) Batas stok/harga** diselaraskan antara aplikasi, constraint tabel `BETWEEN`, dan RPC; parameter harga RPC menjadi `numeric` agar pecahan ditolak, bukan dibulatkan; NaN/Infinity tertutup (§8.2, §9.5, §10.5, T-09, RT17). **(5) Konfigurasi cache** diverifikasi dari dokumentasi resmi terbundel dan kode sumber Next.js 16.4.6, menggantikan klaim sumber sekunder (§1.1, §12.0); koreksi: `force-dynamic` tidak berlaku bila Cache Components aktif, `staleTimes` berada di `experimental`, header CDN bukan bukti tunggal kesegaran data pada PPR, dan risiko fallback nama usaha tertanam di shell saat build (§12.2, §12.4, §12.5, RT15). **(6)** Normalisasi WhatsApp memvalidasi karakter dulu dan menolak `620…` (§13.2). **(7)** Env: `SUPABASE_PROJECT_REF`, `npm run check:env`, dan catatan environment sistem (§15). **(8)** Status fondasi aplikasi (header, §7, §19). Aturan "stok/harga terbaru tampil setelah reload, termasuk build produksi" dipertahankan. |
+| 0.5 | 18 November 2026 | **Alur tanpa Docker.** Laptop menjalankan Next.js lokal; database & auth memakai Supabase cloud dev/staging yang terpisah dari production; deployment Vercel di tahap berikutnya. Uji database lokal memakai PGlite + shim Supabase, uji cloud memakai `pg` (rollback) dan Data API dengan sesi pengguna (§1.1, §8.8, §16.2, §17.1, §19, Lampiran C). **Rekonsiliasi cloud:** skema v0.3 + 4 versi riwayat tanpa isi SQL ditemukan; migrasi v0.4 dibuat konvergen + 4 file catatan riwayat (§8.9). Terverifikasi read-only: default privileges Supabase, `postgres` BYPASSRLS, definisi `auth.uid()`, signup cloud masih aktif. Catatan CLI 3.2.0: dry-run menyetel role sementara `cli_login_postgres`. Rancangan keamanan dan kebutuhan bisnis tidak berubah. |
+
+## Lampiran C — Alur tanpa Docker & rekonsiliasi cloud (18 November 2026)
+
+**§8.9 Rekonsiliasi.** Proyek cloud "PasarNila" (region ap-northeast-1) sudah berisi skema v0.3 dengan 4
+versi riwayat tanpa isi SQL (`20261117000001–04`). Repo menyimpan 4 file catatan riwayat (`select 1`)
+dengan versi yang sama, lalu 6 migrasi v0.4 (`20261118000001–06`) yang **konvergen**: aman di database
+kosong maupun di skema v0.3, gagal keras bila kolom/policy tidak sesuai, dan tidak menimpa data.
+Terverifikasi read-only di cloud: default privileges Supabase di `public` (tabel & fungsi) untuk
+anon/authenticated; `postgres` bukan superuser tetapi BYPASSRLS dan pemilik semua objek; definisi `auth.uid()`.
+
+**§16.6 Alur tanpa Docker.** (1) `npm run test:db` (PGlite + shim). (2) Nyatakan peruntukan di `.env.local`.
+(3) `npm run db:preflight` + dry-run CLI. (4) `npx supabase db push --remote=<ref> --skip-vault` hanya ke
+dev/staging terverifikasi. (5) `npm run test:db:cloud` dan `test:api:cloud`. Production memakai proyek
+Supabase terpisah dan tidak pernah diubah dari laptop pengembang.
+
+**§17.3 Batasan uji lokal.** PGlite = PostgreSQL 18.6, cloud = 17.12; `postgres` di PGlite superuser.
+Lulus di PGlite membuktikan logika SQL, **bukan** keadaan cloud.

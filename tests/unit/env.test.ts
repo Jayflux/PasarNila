@@ -118,6 +118,9 @@ describe("checkEnvironment", () => {
     SUPABASE_PROJECT_REF: FAKE_REF,
     SUPABASE_ACCESS_TOKEN: "fake-token-value",
     SUPABASE_DB_PASSWORD: "fake-password-value",
+    SUPABASE_TARGET_ENV: "staging",
+    SUPABASE_DB_URL: `postgresql://postgres.${FAKE_REF}:fake-db-pass-value@pooler.example.test:5432/postgres`,
+    SUPABASE_DB_CA_PATH: "C:/fake/ca-cert.crt",
     E2E_PARTNER_EMAIL: "mitra@example.test",
     E2E_PARTNER_PASSWORD: "fake-partner-password",
     E2E_OUTSIDER_EMAIL: "outsider@example.test",
@@ -138,9 +141,10 @@ describe("checkEnvironment", () => {
       NEXT_PUBLIC_OTHER: "sb_secret_DO_NOT_LEAK_3",
     });
     const text = JSON.stringify(rows);
-    for (const value of Object.values(FULL)) {
-      // "true"/"false" juga muncul sebagai literal JSON (mis. "required":false), jadi dilewati.
-      if (value && value !== "true" && value !== "false") expect(text).not.toContain(value);
+    // Nilai enumerasi non-rahasia yang SENGAJA ditampilkan (indeks & peruntukan proyek) dilewati.
+    const shownOnPurpose = new Set(["ALLOW_INDEXING", "SUPABASE_TARGET_ENV"]);
+    for (const [name, value] of Object.entries(FULL)) {
+      if (value && !shownOnPurpose.has(name)) expect(text, name).not.toContain(value);
     }
     expect(text).not.toContain("DO_NOT_LEAK");
   });
@@ -179,6 +183,25 @@ describe("checkEnvironment", () => {
       E2E_OUTSIDER_EMAIL: "MITRA@example.test",
     });
     expect(row(rows, "E2E_OUTSIDER_EMAIL")).toMatchObject({ status: "tidak valid" });
+  });
+
+  it("SUPABASE_DB_URL milik proyek lain → tidak valid, tanpa membocorkan isinya", () => {
+    const rows = checkEnvironment({
+      ...FULL,
+      SUPABASE_DB_URL: "postgresql://postgres.proyeklain:RAHASIA_JANGAN_BOCOR@pooler.example.test:5432/postgres",
+    });
+    expect(row(rows, "SUPABASE_DB_URL")).toMatchObject({ status: "tidak valid" });
+    expect(JSON.stringify(rows)).not.toContain("RAHASIA_JANGAN_BOCOR");
+  });
+
+  it("SUPABASE_TARGET_ENV: kosong ditahan, nilai asing tidak valid, production ditandai", () => {
+    expect(row(checkEnvironment(VALID), "SUPABASE_TARGET_ENV")).toMatchObject({ status: "kosong" });
+    expect(row(checkEnvironment({ ...VALID, SUPABASE_TARGET_ENV: "prod" }), "SUPABASE_TARGET_ENV")).toMatchObject({
+      status: "tidak valid",
+    });
+    expect(
+      row(checkEnvironment({ ...VALID, SUPABASE_TARGET_ENV: "production" }), "SUPABASE_TARGET_ENV")?.note,
+    ).toContain("ditolak");
   });
 
   it("nomor WhatsApp tidak valid dilaporkan tanpa nilainya", () => {

@@ -9,6 +9,8 @@
  * Pemeriksaan ini hanya format & keberadaan. Ia TIDAK menghubungi Supabase dan TIDAK membuktikan
  * bahwa database atau migrasinya sudah siap.
  */
+import { parseEnv } from "node:util";
+
 import { loadEnvConfig } from "@next/env";
 
 import { checkEnvironment, isEnvCheckPassing, type EnvCheckRow } from "../src/lib/env";
@@ -23,10 +25,19 @@ const presetNames = new Set(
 const silentLog = { info: () => {}, error: () => {} };
 const { loadedEnvFiles } = loadEnvConfig(process.cwd(), !production, silentLog);
 
+// PENTING: `file.env` dari @next/env sudah ditimpa nilai environment sistem (dotenv-expand), jadi nilai
+// per file dibaca ulang dari `file.contents` mentah. Versi sebelumnya keliru karena memakai `file.env`.
+const fileValues = loadedEnvFiles.map((file) => ({
+  path: file.path,
+  values: parseEnv(file.contents) as Record<string, string | undefined>,
+}));
+
 function sourceOf(name: string): string {
-  const filesWithValue = loadedEnvFiles.filter((file) => (file.env[name] ?? "").trim() !== "");
+  const filesWithValue = fileValues.filter((file) => (file.values[name] ?? "").trim() !== "");
   if (presetNames.has(name)) {
-    const ignored = filesWithValue.filter((file) => file.env[name] !== process.env[name]);
+    const ignored = filesWithValue.filter(
+      (file) => (file.values[name] ?? "").trim() !== (process.env[name] ?? "").trim(),
+    );
     return ignored.length > 0
       ? `environment sistem (nilai berbeda di ${ignored.map((f) => f.path).join(", ")} DIABAIKAN)`
       : "environment sistem";

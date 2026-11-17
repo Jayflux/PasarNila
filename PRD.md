@@ -2,7 +2,7 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.4 (draf untuk ditinjau) |
+| Versi dokumen | 0.5 (draf untuk ditinjau) |
 | Tanggal | 18 November 2026 |
 | Status | Menunggu tinjauan dan persetujuan klien |
 | Dokumen terkait | [`ARCHITECTURE.md`](./ARCHITECTURE.md) (arsitektur teknis) |
@@ -734,7 +734,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | A-16 | Tahap awal memakai **domain bawaan Vercel** (`<nama-proyek>.vercel.app`). | Kecil: domain khusus bisa ditambahkan kemudian. |
 | A-17 | Seluruh situs diberi `noindex` sampai konten asli lengkap. | Kecil. |
 | A-18 | Informasi usaha **selain nama** (profil, alamat, tautan peta, jam operasional) disimpan di file konfigurasi dan diubah oleh pengembang (lalu redeploy). **Nama usaha** disimpan di tabel pengaturan dan diubah mitra dari panel (Q-21, §12.7). | Sedang bila info lain juga perlu diubah mitra: tambah kolom pengaturan + formulir. |
-| A-19 | Database ditempatkan di region terdekat dengan Indonesia (Singapura). | Kecil. |
+| A-19 | Database ditempatkan di region terdekat dengan Indonesia (Singapura). Catatan 18 Nov 2026: proyek Supabase cloud yang sudah ada berada di `ap-northeast-1` (Tokyo); lihat Q-22. | Kecil untuk dev/staging; untuk production memengaruhi latensi. |
 | A-20 | Panjang nama usaha 2–80 karakter, tanpa baris baru. | Kecil: ubah batas validasi. |
 
 ---
@@ -764,6 +764,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | Q-19 | Apakah ada klaim tertentu yang **boleh** atau **tidak boleh** ditampilkan (mis. asal budidaya, sertifikasi)? | Mencegah klaim keliru. | Tidak ada klaim. |
 | Q-20 | Apakah tim pengembang lebih terbiasa dengan TypeScript/React atau PHP/Laravel? | Memengaruhi pilihan stack (lihat `ARCHITECTURE.md` §1). | TypeScript/Next.js. |
 | Q-21 | **[Terjawab 17 Nov 2026]** ~~Siapa yang mengubah nama usaha?~~ Jawaban: **mitra dari panel**. Perlu tabel pengaturan baru (§12.7, `ARCHITECTURE.md` §8.7). | Menambah cakupan: tabel pengaturan, halaman panel, strategi cache nama. | — |
+| Q-22 | Proyek Supabase cloud "PasarNila" yang sudah ada (region Tokyo, berisi skema awal, satu akun mitra di allowlist, dan dua akun login): apakah ini proyek **development/staging**? Proyek production akan dibuat terpisah di region mana dan atas akun siapa (lihat Q-10)? | Migrasi dan uji yang mengubah data hanya boleh dijalankan ke dev/staging yang sudah dipastikan. | Proyek dianggap **belum terverifikasi**; tidak diubah. |
 
 ---
 
@@ -792,6 +793,9 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 - **Bahan dari klien** (§17): penentu peluncuran.
 - **Akun layanan**: GitHub (repositori), Vercel (hosting aplikasi), Supabase (database + autentikasi).
   Hosting aplikasi dan database adalah **dua layanan terpisah** dengan akun, paket, dan tagihan masing-masing.
+- **Lingkungan**: pengembangan berjalan di laptop **tanpa Docker**. Aplikasi Next.js berjalan lokal dan
+  memakai proyek Supabase cloud **development/staging**. Production memakai proyek Supabase **terpisah**
+  dan tidak diubah dari laptop pengembang. Deployment ke Vercel dilakukan pada tahap berikutnya.
 - **Email mitra** untuk akun login.
 - **Nomor WhatsApp** usaha yang aktif.
 - **Keputusan biaya/kepemilikan akun** (Q-10).
@@ -826,7 +830,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 |---|---|---|
 | 0. Persetujuan | Klien meninjau PRD & arsitektur, menjawab pertanyaan prioritas (Q-01, Q-10, Q-11), menyiapkan akun. | Dokumen disetujui. Keputusan akun & biaya jelas. |
 | 1. Fondasi | Membuat proyek, tooling, standar kode, pengujian dasar. | Proyek berjalan lokal, lint & test lulus. |
-| 2. Database & keamanan | Skema tabel, aturan hak akses (RLS), fungsi konfirmasi stok & harga, data awal (produk + 2 artikel placeholder), uji hak akses. | Uji database lulus (akses terlarang ditolak). |
+| 2. Database & keamanan | Skema tabel, aturan hak akses (RLS), fungsi konfirmasi stok & harga, data awal (produk + 2 artikel placeholder), uji hak akses. Tanpa Docker: uji lokal (Postgres di Node) lalu uji di Supabase cloud dev/staging. | Uji database lokal **dan** uji di dev/staging cloud lulus (akses terlarang ditolak), termasuk lewat API dengan akun mitra dan non-mitra. |
 | 3. Halaman publik | Beranda, katalog, detail produk, profil, artikel, kontak, tombol WhatsApp, status loading/kosong/error. | AC-01–AC-16, AC-35, AC-36, AC-40 lulus. |
 | 4. Panel mitra | Login/logout, stok & harga, konfirmasi ulang, edit artikel, ganti nama usaha. | AC-17–AC-34, AC-37–AC-39, AC-41, AC-45–AC-52 lulus. |
 | 5. Pengujian menyeluruh | E2E, responsif, aksesibilitas, data terbaru di build produksi. | AC-42–AC-44 lulus. Laporan uji. |
@@ -864,3 +868,4 @@ keputusan Q-10.
 | 0.2 | 17 November 2026 | Menambahkan data usaha dari klien (§1.1): nama Juki Fish Farm (dapat diubah), lokasi + tautan peta, produk tunggal ikan nila Rp32.000/kg, layanan via chat WhatsApp `6281575723540`. Q-01 terjawab, Q-02/Q-09 sebagian terjawab, Q-21 ditambahkan. Sejarah/gambaran usaha dan foto masih menunggu. |
 | 0.3 | 17 November 2026 | Q-21 terjawab: mitra dapat mengganti nama usaha dari panel. Menambahkan US-27, alur §9.5, FR-31–FR-32, aturan BR-P1–BR-P7 (§12.7), AC-45–AC-50 (§13.7), A-20, R12–R13. Alamat (RT 05/RW 11) dan tautan peta dikonfirmasi klien. |
 | 0.4 | 18 November 2026 | Perbaikan konsistensi, tanpa mengubah kebutuhan bisnis yang dikonfirmasi. **(1)** Hasil simpan dibedakan: pasti ditolak vs belum pasti (timeout/koneksi terputus). Pesan "Data sebelumnya tidak berubah" hanya untuk penolakan yang pasti; hasil belum pasti dibaca ulang (alur §9.2, FR-33, AC-29 diperjelas, AC-41/AC-49 diperjelas, AC-51–AC-52 baru, matriks §13.8). **(2)** Parser angka diperjelas: format diperiksa sebelum titik dihapus, sehingga `35.50` ditolak dan tidak menjadi `3550` (BR-H8, BR-S10, AC-28). Awalan `Rp.` diterima. **(3)** Batas wajar stok/harga ditegakkan sama di server dan database/fungsi simpan, termasuk untuk panggilan API langsung (BR-S9, BR-H7, A-07, AC-28). |
+| 0.5 | 18 November 2026 | Alur pengembangan tanpa Docker: aplikasi lokal + Supabase cloud development/staging yang terpisah dari production; deployment Vercel di tahap berikutnya (§16.2, §18 fase 2). Q-22 ditambahkan (peruntukan dan region proyek cloud yang sudah ada); catatan region pada A-19. Kebutuhan bisnis tidak berubah. |
