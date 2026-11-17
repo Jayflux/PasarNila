@@ -1,8 +1,8 @@
-# ARCHITECTURE — Website Informasi & Promosi Usaha Ikan Nila
+# ARCHITECTURE — Juki Fish Farm: Website Informasi & Promosi Ikan Nila
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.1 (draf untuk ditinjau) |
+| Versi dokumen | 0.3 (draf untuk ditinjau). Menyesuaikan data usaha dari klien di PRD §1.1, dan nama usaha kini dapat diganti mitra dari panel (tabel `site_settings`, §8.7). |
 | Tanggal | 17 November 2026 |
 | Status | Usulan, menunggu persetujuan. **Belum ada kode, dependency, database, atau deployment yang dibuat.** |
 | Dokumen terkait | [`PRD.md`](./PRD.md): kebutuhan produk. ID `A-xx` (asumsi), `Q-xx` (pertanyaan), `AC-xx` (acceptance criteria), dan `BR-xx` (aturan bisnis) merujuk ke PRD. |
@@ -172,7 +172,7 @@ flowchart LR
     subgraph SUPA["Supabase: layanan terpisah"]
         AUTH["Supabase Auth<br/>satu akun mitra"]
         API["Data API PostgREST<br/>tabel dan fungsi RPC"]
-        DB[("PostgreSQL<br/>products, articles,<br/>private.partner_admins<br/>RLS aktif")]
+        DB[("PostgreSQL<br/>products, articles, site_settings,<br/>private.partner_admins<br/>RLS aktif")]
     end
 
     WA["WhatsApp<br/>wa.me, aplikasi atau WhatsApp Web"]
@@ -208,7 +208,7 @@ flowchart TB
 | **Browser mitra** | Membuka panel, mengirim formulir. Menyimpan cookie sesi Supabase (dikelola `@supabase/ssr`). | Vercel saja. Login dan penyimpanan dilakukan melalui Server Actions. |
 | **Aplikasi Next.js di Vercel** | Merender halaman, menjalankan Server Actions, menyegarkan sesi (`proxy.ts`), membuat tautan WhatsApp. | Supabase Auth (login/sesi), Supabase Data API (baca/tulis), CDN Vercel. |
 | **Supabase Auth** | Memverifikasi email+password dan menerbitkan JWT (access token) + refresh token. Registrasi publik dimatikan. | Aplikasi, Data API (JWT dibaca oleh RLS lewat `auth.uid()`). |
-| **Database (Postgres)** | Menyimpan produk, artikel, dan allowlist mitra. Menegakkan RLS, constraint, dan fungsi konfirmasi. | Data API. Pengembang (migrasi via Supabase CLI). |
+| **Database (Postgres)** | Menyimpan produk, artikel, pengaturan usaha (nama), dan allowlist mitra. Menegakkan RLS, constraint, dan fungsi konfirmasi. | Data API. Pengembang (migrasi via Supabase CLI). |
 | **WhatsApp** | Layanan eksternal. Website hanya membuat **tautan** `wa.me`. | Browser pengunjung. **Tidak ada** integrasi API, webhook, atau penyimpanan pesan. |
 
 Hal penting yang perlu dipahami klien:
@@ -356,6 +356,36 @@ sequenceDiagram
     Note over PAGE,WA: Tidak ada permintaan ke database. Stok tidak berubah (AC-15)
 ```
 
+### 5.6 Penggantian nama usaha
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Mitra
+    participant SA as Server Action updateBusinessName
+    participant API as Supabase Data API
+    participant DB as PostgreSQL
+    participant C as Cache Next.js tag site-settings
+    M->>SA: Kirim nama baru dari /mitra/pengaturan
+    SA->>SA: requirePartner dan validasi Zod (2-80 karakter, tanpa baris baru)
+    SA->>API: UPDATE site_settings SET business_name WHERE id = true, JWT mitra, minta baris kembali
+    API->>DB: RLS policy update khusus mitra dan column grant hanya business_name
+    alt RLS menolak, 0 baris, atau error
+        DB-->>API: 0 baris atau error
+        API-->>SA: gagal
+        SA-->>M: Gagal menyimpan, isian tetap, nama lama tetap tampil
+    else berhasil
+        DB-->>API: 1 baris, trigger mengisi updated_at
+        API-->>SA: baris tersimpan
+        SA->>C: updateTag site-settings
+        SA-->>M: Nama usaha disimpan
+    end
+    Note over C: Permintaan halaman berikutnya membaca nama baru dari DB lalu menyimpannya lagi di cache
+```
+
+Sama seperti artikel, UPDATE yang ditolak RLS menghasilkan 0 baris, bukan error. Hasil 0 baris wajib
+diperlakukan sebagai gagal. Cache **hanya** dibersihkan setelah penyimpanan berhasil.
+
 ---
 
 ## 6. Struktur halaman dan route
@@ -365,7 +395,7 @@ sequenceDiagram
 | `/` | Publik | Semua | Shell statis + bagian produk dinamis (Suspense) | Hero, ringkasan produk (stok/harga/waktu), cuplikan profil, 2 artikel, CTA WhatsApp |
 | `/produk` | Publik | Semua | Shell statis + daftar produk dinamis | Kartu produk aktif (MVP: 1) |
 | `/produk/[slug]` | Publik | Semua | Shell statis + data produk dinamis | Detail produk. Slug MVP: `ikan-nila`. Slug tak dikenal → 404 |
-| `/profil` | Publik | Semua | Statis | Profil usaha dari `src/config/site.ts` |
+| `/profil` | Publik | Semua | Statis (nama usaha dari cache bertag, §12.5) | Profil usaha dari `src/config/site.ts` |
 | `/artikel` | Publik | Semua | Dinamis (MVP) | Daftar artikel terbit |
 | `/artikel/[slug]` | Publik | Semua | Dinamis (MVP) | Isi artikel. Slug tak dikenal → 404 |
 | `/kontak` | Publik | Semua | Statis | WhatsApp, alamat, jam operasional |
@@ -373,6 +403,7 @@ sequenceDiagram
 | `/mitra` | Panel | Mitra | Dinamis, `no-store` | Data tersimpan + form stok & harga |
 | `/mitra/artikel` | Panel | Mitra | Dinamis, `no-store` | Daftar 2 artikel (tanpa tombol tambah/hapus) |
 | `/mitra/artikel/[slug]` | Panel | Mitra | Dinamis, `no-store` | Form edit judul & isi + pratinjau |
+| `/mitra/pengaturan` | Panel | Mitra | Dinamis, `no-store` | Form nama usaha |
 | `/robots.txt` | Sistem | — | Dinamis per env | `Disallow: /mitra`. `noindex` global sebelum peluncuran |
 | `/sitemap.xml` | Sistem | — | Dinamis | Hanya halaman publik |
 
@@ -385,7 +416,7 @@ sequenceDiagram
 ## 7. Struktur folder proyek (usulan)
 
 ```text
-ikannila/
+PasarNila/
 ├── PRD.md
 ├── ARCHITECTURE.md
 ├── README.md                         # (fase implementasi) cara setup & menjalankan
@@ -408,7 +439,8 @@ ikannila/
 │   │   ├── <ts>_schema.sql           # tabel, constraint, trigger updated_at
 │   │   ├── <ts>_security.sql         # schema private, allowlist, RLS, grants
 │   │   ├── <ts>_functions.sql        # confirm_product_stock_price, current_user_is_partner
-│   │   └── <ts>_initial_content.sql  # produk "Ikan Nila" + 2 artikel placeholder (idempoten)
+│   │   └── <ts>_initial_content.sql  # produk "Ikan Nila" + 2 artikel placeholder
+│   │                                 # + 1 baris site_settings "Juki Fish Farm" (idempoten)
 │   ├── seed.sql                      # data uji lokal saja; TANPA akun/password
 │   └── tests/                        # pgTAP: RLS, grants, fungsi
 ├── src/
@@ -435,14 +467,16 @@ ikannila/
 │   │           ├── layout.tsx        # requirePartner(), header panel, tombol logout
 │   │           ├── page.tsx          # stok & harga
 │   │           ├── artikel/page.tsx
-│   │           └── artikel/[slug]/page.tsx
+│   │           ├── artikel/[slug]/page.tsx
+│   │           └── pengaturan/page.tsx  # nama usaha
 │   ├── components/
 │   │   ├── ui/                       # Button, Input, Alert, Badge, Skeleton
 │   │   ├── publik/                   # ProductCard, StockStatus, PriceText, UpdatedAt,
 │   │   │                             # WhatsAppButton, Placeholder
-│   │   └── panel/                    # StockPriceForm, ArticleForm, MarkdownPreview
+│   │   └── panel/                    # StockPriceForm, ArticleForm, MarkdownPreview,
+│   │                                 # BusinessNameForm
 │   ├── config/
-│   │   ├── site.ts                   # info usaha; null = belum tersedia
+│   │   ├── site.ts                   # info usaha selain nama; null = belum tersedia
 │   │   └── whatsapp-messages.ts      # templat pesan terisi
 │   ├── lib/
 │   │   ├── env.ts                    # membaca & memvalidasi env var
@@ -453,9 +487,11 @@ ikannila/
 │   │   ├── auth/require-partner.ts   # getClaims + cek mitra; dipakai layout & actions
 │   │   ├── data/products.ts          # query baca produk
 │   │   ├── data/articles.ts          # query baca artikel
+│   │   ├── data/site-settings.ts     # getSiteSettings() ber-cache, tag 'site-settings'
 │   │   ├── actions/auth.ts           # signIn, signOut
 │   │   ├── actions/stock-price.ts    # saveStockPrice
 │   │   ├── actions/articles.ts       # updateArticle
+│   │   ├── actions/site-settings.ts  # updateBusinessName + updateTag('site-settings')
 │   │   ├── domain/product-status.ts  # aturan Belum tersedia / Stok habis / angka
 │   │   ├── validation/               # skema Zod + parser angka format Indonesia
 │   │   ├── format/                   # datetime (WIB), rupiah, kg
@@ -515,6 +551,11 @@ erDiagram
         integer sort_order
         timestamptz created_at
         timestamptz updated_at "waktu artikel terakhir diubah"
+    }
+    SITE_SETTINGS {
+        boolean id PK "selalu true, tepat 1 baris"
+        text business_name "diedit mitra, 2-80 karakter"
+        timestamptz updated_at "waktu pengaturan terakhir diubah"
     }
 ```
 
@@ -582,7 +623,15 @@ format) sehingga mitra hanya perlu mengurus judul dan isi.
 ### 8.5 Data awal (migrasi `initial_content`, idempoten)
 
 - 1 produk: `slug = 'ikan-nila'`, `name = 'Ikan Nila'`, `is_published = true`, stok/harga/waktu konfirmasi
-  **NULL** (tampil "Belum tersedia" dan "Belum pernah diperbarui" sampai mitra mengisi).
+  **NULL** (tampil "Belum tersedia" dan "Belum pernah diperbarui" sampai mitra mengisi). Klien sudah
+  mengonfirmasi hanya menjual ikan nila (Q-01 terjawab), jadi satu baris ini adalah katalog final MVP.
+- Harga dari klien (**Rp32.000/kg**, PRD BR-H9) **sengaja tidak** dimasukkan ke data awal. Constraint
+  integritas waktu (§8.2) mewajibkan harga punya waktu konfirmasi. Mengisi waktu itu dari migrasi berarti
+  membuat waktu konfirmasi palsu, padahal stok juga belum diketahui. Mitra mengisi Rp32.000 dan stok aktual
+  lewat panel pada penyimpanan pertama.
+- 1 baris `site_settings`: `id = true`, `business_name = 'Juki Fish Farm'` (nama awal dari klien).
+  Migrasi memakai `ON CONFLICT DO NOTHING` agar nama yang sudah diganti mitra tidak tertimpa saat migrasi
+  dijalankan ulang.
 - 2 artikel: judul dan isi placeholder yang ditandai jelas, mis. judul `"[PLACEHOLDER] Artikel 1, menunggu
   bahan dari klien"`, `is_published = true`.
 - **Tidak ada** akun pengguna, password, atau `partner_admins` di migrasi/seed. Akun dibuat manual per
@@ -601,6 +650,21 @@ Desain ini sudah mengantisipasi varian tanpa perombakan:
 
 Logika waktu konfirmasi, RLS, dan tampilan status tidak berubah pada kedua opsi.
 
+### 8.7 Tabel `public.site_settings` (pengaturan usaha, PRD §12.7)
+
+| Field | Tipe | Wajib | Nilai awal | Tujuan & aturan |
+|---|---|---|---|---|
+| `id` | `boolean` | Ya | `true`, `PRIMARY KEY`, `CHECK (id)` | Menjamin **tepat satu baris** pengaturan (pola yang sama dengan `partner_admins`). |
+| `business_name` | `text` | Ya | `'Juki Fish Farm'` | Nama usaha yang tampil di seluruh website. `CHECK (char_length(btrim(business_name)) BETWEEN 2 AND 80 AND business_name !~ '[\r\n]')`. **Dapat diedit mitra.** |
+| `updated_at` | `timestamptz` | Ya | `now()`, trigger | Metadata teknis. Terpisah total dari waktu konfirmasi stok dan tidak ditampilkan ke publik. |
+
+- Tabel ini sengaja **terpisah** dari `products` sehingga mengganti nama tidak bisa menyentuh
+  `stock_price_confirmed_at` (PRD BR-P5).
+- Hanya `business_name` yang dapat diubah mitra di MVP. Bila nanti info lain (alamat, jam operasional)
+  juga perlu diubah dari panel, tambahkan kolom di tabel yang sama lewat migrasi dan perluas column grant.
+- Tidak ada policy `INSERT`/`DELETE`, jadi baris tunggal ini tidak bisa ditambah atau dihapus dari aplikasi
+  (PRD AC-48).
+
 ---
 
 ## 9. Rancangan hak akses
@@ -617,6 +681,9 @@ Logika waktu konfirmasi, RLS, dan tampilan status tidak berubah pada kedua opsi.
 | Ubah judul/isi artikel | ❌ | ❌ | ✅ | ✅ |
 | Ubah kolom artikel lain (slug, terbit, sampul) | ❌ | ❌ | ❌ | ✅ |
 | Tambah/hapus artikel | ❌ | ❌ | ❌ (di luar MVP) | ✅ |
+| Baca nama usaha (`site_settings`) | ✅ | ✅ | ✅ | ✅ |
+| Ubah nama usaha | ❌ | ❌ | ✅ | ✅ |
+| Tambah/hapus baris pengaturan | ❌ | ❌ | ❌ | ✅ |
 | Baca/ubah `partner_admins` | ❌ | ❌ | ❌ | ✅ |
 | Mendaftar akun baru | ❌ (signup dimatikan) | — | — | ✅ (dashboard) |
 
@@ -696,6 +763,19 @@ create policy "mitra ubah artikel" on public.articles
   using ((select private.is_partner_admin()))
   with check ((select private.is_partner_admin()));
 -- Tidak ada policy INSERT/DELETE: tambah/hapus artikel ditolak (AC-39).
+
+-- Pengaturan usaha (nama)
+alter table public.site_settings enable row level security;
+revoke insert, update, delete, truncate on public.site_settings from anon, authenticated;
+grant update (business_name) on public.site_settings to authenticated;  -- hanya satu kolom
+
+create policy "publik baca pengaturan" on public.site_settings
+  for select to anon, authenticated using (true);
+create policy "mitra ubah nama usaha" on public.site_settings
+  for update to authenticated
+  using ((select private.is_partner_admin()))
+  with check ((select private.is_partner_admin()));
+-- Tidak ada policy INSERT/DELETE: baris tunggal tidak bisa ditambah/dihapus (AC-48).
 ```
 
 Peran RLS secara konseptual: setiap query via Data API berjalan sebagai role `anon` (tanpa login) atau
@@ -824,6 +904,11 @@ mengubah data karena tidak ada di allowlist (AC-20).
 **Artikel** (BR-A6): judul dan isi di-trim, judul 1–150 karakter, isi 1–20.000 karakter. HTML tidak diizinkan
 dirender. Teks disimpan apa adanya dan dirender dengan `react-markdown` tanpa `rehype-raw`.
 
+**Nama usaha** (PRD BR-P3, A-20): di-trim, wajib 2–80 karakter, dan ditolak bila mengandung baris baru.
+Spasi ganda di tengah dirapikan menjadi satu. Nama dirender sebagai teks biasa oleh React (otomatis
+di-*escape*) dan tidak pernah lewat `dangerouslySetInnerHTML` (AC-50). Constraint yang sama ada di
+database (§8.7).
+
 **Login:** email format valid, password wajib. Pesan gagal selalu umum.
 
 ### 10.3 Pemetaan error → pesan untuk pengguna
@@ -885,6 +970,7 @@ const fmt = new Intl.DateTimeFormat('id-ID', {
 | `products.stock_price_confirmed_at` | Terakhir stok & harga disimpan/dikonfirmasi | **Hanya** fungsi `confirm_product_stock_price` | Ya, di halaman produk & panel |
 | `products.updated_at` | Perubahan teknis baris produk apa pun (nama, foto, deskripsi, termasuk konfirmasi) | Trigger otomatis | Tidak |
 | `articles.updated_at` | Terakhir artikel diubah | Trigger otomatis | Opsional di detail artikel |
+| `site_settings.updated_at` | Terakhir nama usaha diubah | Trigger otomatis | Tidak |
 
 Mekanisme yang mencegah waktu konfirmasi berubah karena hal lain (BR-W5, AC-32):
 
@@ -894,7 +980,7 @@ Mekanisme yang mencegah waktu konfirmasi berubah karena hal lain (BR-W5, AC-32):
 3. RPC mengisi waktu konfirmasi **secara eksplisit** setiap dipanggil, termasuk bila angka sama.
 4. Perubahan nama/deskripsi/foto oleh pengembang memakai UPDATE biasa yang tidak menyentuh kolom ini.
    Sebaliknya, pengembang **tidak** mengubah kolom ini secara manual kecuali untuk koreksi yang disengaja.
-5. Artikel berada di tabel lain sehingga tidak bisa memengaruhi waktu produk.
+5. Artikel dan pengaturan usaha berada di tabel lain sehingga tidak bisa memengaruhi waktu produk.
 6. Sengaja **tidak** memakai trigger "isi waktu bila stok/harga berubah". Trigger semacam itu tidak bisa
    membedakan konfirmasi ulang (angka sama) dari tidak ada aksi.
 
@@ -930,7 +1016,8 @@ penting (FR-07, AC-09).
 |---|---|---|
 | `/`, `/produk`, `/produk/[slug]` | Shell statis + bagian produk dinamis | Data produk wajib segar |
 | `/artikel`, `/artikel/[slug]` | Dinamis (MVP) | Edit mitra langsung terlihat setelah muat ulang. Paling sederhana dan tanpa bug invalidasi. |
-| `/profil`, `/kontak` | Statis | Bersumber dari file konfigurasi. Perubahan lewat redeploy. |
+| `/profil`, `/kontak` | Statis | Info usaha dari file konfigurasi (perubahan lewat redeploy). Nama usaha dari cache bertag (§12.5). |
+| Header, footer, metadata semua halaman publik | Cache bertag `site-settings` | Nama usaha tampil di semua halaman. Lihat §12.5. |
 | `/mitra/*` | Dinamis, `no-store` | Berbasis sesi |
 
 **Optimasi opsional nanti [Saran]:** artikel bisa di-cache dengan `'use cache'` + `cacheTag('articles')`,
@@ -948,6 +1035,59 @@ Pola ini hanya dipakai bila diperlukan.
 - **Uji wajib di build produksi** (`next build && next start` dan di Vercel preview), **bukan hanya** `next dev`,
   karena perilaku cache berbeda antara mode pengembangan dan produksi.
 
+### 12.5 Nama usaha: cache bertag dengan invalidasi saat disimpan
+
+Nama usaha dipakai di **layout** (header, footer, `generateMetadata`, gambar OG) sehingga ikut di setiap
+halaman. Membaca database tanpa cache di layout akan membuat **seluruh** halaman dinamis. Dengan
+`cacheComponents`, data tak ber-cache di layout juga harus dibungkus `Suspense`, sehingga nama berkedip
+saat dimuat. Karena itu nama diperlakukan berbeda dari stok:
+
+```ts
+// SKETSA KONSEPTUAL: src/lib/data/site-settings.ts
+import { cacheTag, cacheLife } from 'next/cache';
+
+export async function getSiteSettingsCached() {
+  'use cache';
+  cacheTag('site-settings');
+  cacheLife('hours');              // jaring pengaman bila DB diubah langsung lewat SQL editor
+  const { data, error } = await publicClient
+    .from('site_settings').select('business_name').single();
+  if (error) throw error;          // JANGAN ditangkap di sini: fallback tidak boleh ikut ter-cache
+  return data;
+}
+
+export async function getBusinessName() {
+  try {
+    return (await getSiteSettingsCached()).business_name;
+  } catch (e) {
+    log.error('site_settings gagal dimuat', e);
+    return site.fallbackDisplayName;   // "Ikan Nila" (PRD BR-P6), tidak di-cache
+  }
+}
+```
+
+```ts
+// SKETSA KONSEPTUAL: src/lib/actions/site-settings.ts
+'use server';
+export async function updateBusinessName(prev, formData) {
+  await requirePartner();
+  // validasi Zod → UPDATE via klien ber-JWT → cek 1 baris kembali
+  updateTag('site-settings');      // hanya setelah berhasil; mitra langsung melihat nama baru
+}
+```
+
+- `updateTag` (khusus Server Action) membersihkan cache bertag dan membuat permintaan berikutnya
+  membaca nilai baru (*read-your-own-writes*). Halaman prerender yang memakai tag ini ikut diperbarui.
+- Fungsi ber-cache memakai **klien publik tanpa cookie**. Data sesi tidak boleh ada di dalam
+  `'use cache'`.
+- Bila database diubah langsung oleh pengembang (bukan lewat panel), nama baru muncul paling lambat
+  setelah masa `cacheLife` habis, atau segera setelah redeploy.
+- **Wajib dicek saat implementasi:** API `cacheTag`/`cacheLife`/`updateTag` dan perilaku invalidasinya
+  di Vercel (antar-instance function dan halaman prerender), sesuai versi Next.js yang dikunci. Bila
+  invalidasi ternyata tidak andal, **alternatifnya**: baca nama secara dinamis (`connection()`) di
+  komponen header/footer yang dibungkus `Suspense`. Pilihan ini sedikit lebih lambat tetapi pasti segar.
+- Diuji di build produksi dan Vercel preview (T-22).
+
 ---
 
 ## 13. Strategi konten placeholder dan konfigurasi nomor WhatsApp
@@ -955,20 +1095,34 @@ Pola ini hanya dipakai bila diperlukan.
 ### 13.1 Placeholder
 
 - **Info usaha** di `src/config/site.ts`. Setiap field bertipe `string | null`, dan `null` berarti belum
-  tersedia (A-18):
+  tersedia (A-18). Nilai yang sudah diberikan klien (PRD §1.1) langsung diisi:
 
 ```ts
 // SKETSA KONSEPTUAL
 export const site = {
-  businessName: null,      // [[PLACEHOLDER: Nama usaha]]
+  // Nama usaha TIDAK disimpan di sini: ada di tabel site_settings dan diganti mitra (§8.7, §12.5).
+  fallbackDisplayName: 'Ikan Nila', // hanya dipakai bila pengaturan gagal dimuat (PRD BR-P6)
   tagline: null,
-  profile: null,           // paragraf profil usaha
-  address: null,
-  mapsUrl: null,
-  operatingHours: null,    // mis. [{ day: 'Senin', hours: '...' }]
+  profile: null,                   // [[PLACEHOLDER: Sejarah dan gambaran usaha]], menyusul dari klien
+  address:
+    'Jl. Setia Bersama, RT 05/RW 11, Kelurahan Meruyung, Kecamatan Limo, ' +
+    'Kota Depok, Provinsi Jawa Barat',
+  mapsUrl: 'https://share.google/u0j1tZY5Q6MoMTD5P',
+  operatingHours: null,            // mis. [{ day: 'Senin', hours: '...' }], menunggu klien
   socials: [],
 } as const;
 ```
+
+- **Nama usaha diganti mitra dari panel** (Q-21 terjawab). `site_settings.business_name` (§8.7) adalah
+  **satu-satunya** sumber nama, dibaca lewat `getBusinessName()` (§12.5). Header, footer, judul halaman
+  (`generateMetadata` + template judul), gambar bagikan (OG), dan templat pesan WhatsApp
+  (`{businessName}`) semuanya memakai fungsi ini. Tidak ada nama usaha yang ditulis langsung di komponen,
+  teks halaman, atau `site.ts`. Pemeriksaan otomatis (lint/grep di CI) dapat memastikan string
+  "Juki Fish Farm" hanya muncul di migrasi data awal.
+- **Tautan peta:** `mapsUrl` adalah tautan berbagi Google (`share.google`) yang mengalihkan ke Google Maps.
+  Cukup untuk tombol "Buka di Google Maps" (`target="_blank"`). Klien sudah mengonfirmasi tautan ini
+  membuka titik yang benar. Bila nanti ingin menyematkan peta (iframe), diperlukan URL *embed* Google Maps
+  tersendiri dan penyesuaian CSP `frame-src`. Penyematan peta **tidak** termasuk MVP.
 
 - Komponen `<Placeholder label="Alamat" />` merender penanda yang **jelas tidak asli**, mis. kotak bergaris
   putus-putus bertuliskan "[Alamat belum tersedia]". Tidak ada data realistis palsu (BR-K2).
@@ -985,6 +1139,9 @@ export const site = {
 
 - Disimpan di env var **`WHATSAPP_NUMBER`** (server-side). Tidak ada nomor di kode, dan **tidak ada nomor
   cadangan** (A-13).
+- **Nilai production dari klien: `6281575723540`** (+62 815-7572-3540). Nomor ini sudah dalam format `62…`
+  dan lolos validasi `^62\d{8,13}$` di bawah. Seluruh layanan pemesanan berlangsung lewat chat ke nomor
+  ini (PRD §1.1).
 - `src/lib/whatsapp.ts`:
   1. Normalisasi: buang selain digit. Awalan `0` menjadi `62`, `+62` menjadi `62`, `8` menjadi `628`.
   2. Validasi pola `^62\d{8,13}$`.
@@ -998,7 +1155,7 @@ export const site = {
   - Belum dikonfigurasi: `<button disabled aria-disabled="true">` bertuliskan "Nomor WhatsApp belum tersedia",
     **tanpa** atribut `href` (AC-14).
 - Templat pesan di `src/config/whatsapp-messages.ts` (PRD §12.4), dengan variabel `{productName}`,
-  `{productUrl}`, dan `{businessName}`. Variabel yang kosong dihilangkan dengan rapi. `productUrl` dibentuk
+  `{productUrl}`, dan `{businessName}` (dari `getBusinessName()`, §12.5). Variabel yang kosong dihilangkan dengan rapi. `productUrl` dibentuk
   dari `NEXT_PUBLIC_SITE_URL`.
 - Perubahan env var di Vercel baru berlaku setelah **redeploy**. Halaman statis (profil/kontak) membaca nilai
   saat build.
@@ -1027,7 +1184,7 @@ export const site = {
 | `NEXT_PUBLIC_SUPABASE_URL` | Ya | Publik (aman) | Semua | URL proyek Supabase. |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Ya | Publik (aman **bila** RLS benar) | Semua | Kunci `sb_publishable_…`. Jangan pakai anon key lama untuk proyek baru. |
 | `NEXT_PUBLIC_SITE_URL` | Ya (production) | Publik | Production, Preview | URL kanonik, mis. `https://<nama-proyek>.vercel.app`, lalu domain khusus. Dipakai untuk metadata, sitemap, dan tautan produk di pesan WhatsApp. Preview boleh jatuh ke `VERCEL_URL`. |
-| `WHATSAPP_NUMBER` | Tidak (kosong = belum dikonfigurasi) | Server-side (nilainya akan tampil di tautan publik) | Per lingkungan | Format `62…`. Kosong/tidak valid → tombol nonaktif. |
+| `WHATSAPP_NUMBER` | Tidak (kosong = belum dikonfigurasi) | Server-side (nilainya akan tampil di tautan publik) | Per lingkungan | Format `62…`. Production: `6281575723540`. Kosong/tidak valid → tombol nonaktif. |
 | `ALLOW_INDEXING` | Tidak (default `false`) | Server-side | Production | `true` hanya saat peluncuran. Selain itu `noindex`. |
 | `VERCEL_ENV`, `VERCEL_URL` | Otomatis | Sistem Vercel | — | Deteksi lingkungan. Tidak perlu diset manual. |
 
@@ -1086,7 +1243,9 @@ export const site = {
 
 ### 16.4 Peluncuran & domain
 
-1. Ganti placeholder, isi `WHATSAPP_NUMBER` production, dan jalankan daftar periksa peluncuran.
+1. Ganti placeholder yang tersisa (sejarah/gambaran usaha, foto, jam operasional, artikel), isi
+   `WHATSAPP_NUMBER=6281575723540` di production, minta mitra mengisi stok & harga (Rp32.000/kg atau harga
+   terbaru), dan jalankan daftar periksa peluncuran.
 2. Set `ALLOW_INDEXING=true` lalu redeploy.
 3. **Domain khusus (opsional, Q-14):** tambahkan di Vercel → atur DNS di registrar → HTTPS otomatis →
    perbarui `NEXT_PUBLIC_SITE_URL` dan *Site URL* Supabase → redeploy. Domain `.vercel.app` tetap bisa
@@ -1140,6 +1299,7 @@ export const site = {
 | T-19 | Aksesibilitas | axe tanpa pelanggaran *critical/serious*. Navigasi keyboard penuh di form panel. Pesan hasil simpan terbaca pembaca layar. | AC-43 |
 | T-20 | Indeks | `/mitra/*` `noindex` + tidak di sitemap. `ALLOW_INDEXING=false` → `noindex` global. | AC-44 |
 | T-21 | Logout & sesi | Logout → `/mitra` minta login. Sesi kedaluwarsa saat form terbuka → pesan sesi, data tidak berubah. | AC-23, AC-24 |
+| T-22 | Nama usaha | Unit: validasi nama (kosong, spasi saja, 1 karakter, 81 karakter, baris baru → ditolak). pgTAP: `anon`/outsider tidak bisa UPDATE `site_settings`, mitra hanya bisa UPDATE `business_name`, tidak ada yang bisa INSERT/DELETE. E2E di build produksi **dan** Vercel preview: ganti nama → reload beberapa halaman publik → header, footer, `<title>`, dan `href` WhatsApp memakai nama baru tanpa redeploy. `confirmed_at` produk tetap. Nama berisi `<script>` tampil sebagai teks. Simulasi DB gagal saat cache kosong → nama netral "Ikan Nila", dan nama asli kembali setelah DB pulih. | AC-45–AC-50 |
 
 ---
 
@@ -1161,6 +1321,7 @@ export const site = {
 | RT12 | Dua perangkat mitra menyimpan hampir bersamaan | Risiko rendah (satu mitra). *Last write wins* dan pesan berhasil menampilkan nilai yang benar-benar tersimpan. Pengecekan konflik (versi/`confirmed_at` yang diharapkan) bisa ditambah nanti. |
 | RT13 | Latensi Vercel ↔ Supabase tinggi | Region berdekatan (Singapura) untuk DB dan function. |
 | RT14 | Env var WhatsApp/URL salah di production | Validasi saat build/start + daftar periksa peluncuran + smoke test pasca-deploy. |
+| RT15 | Cache nama usaha tidak terinvalidasi (nama lama tetap tampil), atau fallback ikut ter-cache | `updateTag` setelah simpan berhasil, error tidak ditangkap di dalam fungsi ber-cache, `cacheLife` sebagai jaring pengaman, uji T-22 di Vercel. Alternatif: baca dinamis + `Suspense` (§12.5). |
 
 ---
 
@@ -1176,7 +1337,7 @@ export const site = {
 | 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. |
 | 6 | Autentikasi: klien Supabase, `proxy.ts` (`/mitra/*`), login/logout, `requirePartner()`, halaman akses ditolak. | T-06, T-21 lulus. |
 | 7 | Panel stok & harga: form mobile-first, pratinjau, Server Action → RPC, pesan berhasil/gagal, konfirmasi ulang, dialog harga 0. | T-08–T-13 lulus. |
-| 8 | Panel artikel: daftar, form edit, pratinjau Markdown, Server Action, cek 0 baris. | T-14 lulus. |
+| 8 | Panel artikel: daftar, form edit, pratinjau Markdown, Server Action, cek 0 baris. Panel pengaturan: form nama usaha, Server Action + `updateTag`, nama dari `getBusinessName()` di layout/metadata/WhatsApp. | T-14, T-22 lulus. |
 | 9 | Pengerasan: security headers, uji responsif & aksesibilitas, Lighthouse. | T-18, T-19 lulus. Target NFR-18 tercapai. |
 | 10 | Vercel: hubungkan repo, env var per lingkungan, region, preview & production di `*.vercel.app` (`noindex`). | Smoke test pasca-deploy lulus, termasuk T-15 di Vercel. |
 | 11 | UAT bersama klien & mitra + panduan singkat 1 halaman untuk mitra. | Klien menyetujui UAT. |
@@ -1188,7 +1349,8 @@ export const site = {
 
 | Keputusan | Pilihan | Default bila belum dijawab | Menghambat? | Ref |
 |---|---|---|---|---|
-| Varian produk | Satu produk / beberapa pilihan (ukuran, kondisi, dll.) | Satu produk | Tidak (struktur siap) | Q-01, A-01 |
+| ~~Varian produk~~ | **Terjawab:** ikan nila saja, satu produk, Rp32.000/kg | — | Tidak | Q-01, A-01 |
+| ~~Siapa yang mengubah nama usaha~~ | **Terjawab:** mitra via panel (`site_settings`, §8.7, §12.5) | — | Tidak | Q-21, A-18 |
 | Kepemilikan akun & biaya hosting/DB | Akun klien vs pengembang. Vercel Pro. Supabase Free vs Pro. | Akun milik klien | **Ya, untuk deployment produksi** | Q-10 |
 | Presisi stok | 0,1 kg / 0,01 kg | 0,01 kg | Tidak | Q-04, A-03 |
 | Harga sen | Bulat / desimal | Bulat | Tidak | Q-03, A-02 |
@@ -1196,7 +1358,7 @@ export const site = {
 | Harga grosir/minimal order | Ada / tidak | Tidak ada | Tidak | Q-06 |
 | Label "data lama" | Tidak ada / setelah X jam | Tidak ada | Tidak | Q-07 |
 | Isi pesan WhatsApp | Usulan PRD §12.4 / versi klien | Usulan PRD | Tidak | Q-08, A-14 |
-| Nomor WhatsApp | Satu nomor / lebih | Satu nomor via env | Tidak (tombol nonaktif bila kosong) | Q-09, A-13 |
+| Nomor WhatsApp | **Terjawab:** satu nomor `6281575723540` via env. Tersisa: apakah nomor dipegang mitra. | Satu nomor via env | Tidak | Q-09, A-13 |
 | Email mitra & reset password | Reset manual / SMTP + lupa password | Reset manual | Tidak | Q-11, A-09 |
 | Unggah foto oleh mitra | Tidak / ya (Storage) | Tidak | Tidak | Q-12, A-12 |
 | Format artikel | Markdown dasar / editor kaya + gambar | Markdown dasar | Tidak | Q-13, A-10 |
@@ -1221,4 +1383,5 @@ Platform (dicek ulang saat implementasi karena dapat berubah):
 - Supabase server-side auth untuk Next.js (`@supabase/ssr`, `getClaims`, proxy): https://supabase.com/docs/guides/auth/server-side/nextjs
 - Supabase custom SMTP (batasan email bawaan): https://supabase.com/docs/guides/auth/auth-smtp
 - Next.js Cache Components: https://nextjs.org/docs/app/getting-started/cache-components
+- Next.js `cacheTag` / `updateTag` (invalidasi nama usaha, §12.5): https://nextjs.org/docs/app/api-reference/functions/cacheTag dan https://nextjs.org/docs/app/api-reference/functions/updateTag
 - Info Next.js 16.4 (sumber sekunder): https://www.buildmvpfast.com/blog/nextjs-16-4-cache-components-default-upgrade-2026

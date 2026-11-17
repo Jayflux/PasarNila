@@ -1,12 +1,12 @@
-# PRD — Website Informasi & Promosi Usaha Ikan Nila
+# PRD — Juki Fish Farm: Website Informasi & Promosi Ikan Nila
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.1 (draf untuk ditinjau) |
+| Versi dokumen | 0.3 (draf untuk ditinjau) |
 | Tanggal | 17 November 2026 |
 | Status | Menunggu tinjauan dan persetujuan klien |
 | Dokumen terkait | [`ARCHITECTURE.md`](./ARCHITECTURE.md) (arsitektur teknis) |
-| Nama usaha | `[[PLACEHOLDER: Nama usaha]]` (belum diberikan klien) |
+| Nama usaha | **Juki Fish Farm** (nama awal, dapat diganti mitra dari panel, lihat §1.1 dan §12.7) |
 
 ---
 
@@ -22,8 +22,9 @@ Setiap kebutuhan diberi label agar jelas statusnya:
 | **[Saran]** | Saran dari tim pengembang, belum menjadi kebutuhan wajib sebelum disetujui. |
 
 Penulisan `[[PLACEHOLDER: ...]]` menandai konten yang **belum tersedia** dan nanti harus diganti dengan
-bahan asli dari klien. Dokumen ini tidak memuat nama usaha, alamat, nomor WhatsApp, harga, stok,
-testimoni, atau keunggulan produk karena data tersebut belum diberikan.
+bahan asli dari klien. Data usaha yang **sudah diberikan klien** (nama, lokasi, produk, harga awal, dan
+nomor WhatsApp) dirangkum di §1.1. Sejarah/gambaran usaha, foto, jam operasional, isi artikel, stok,
+testimoni, dan keunggulan produk **belum diberikan**, jadi tidak dimuat dan tidak dikarang.
 
 ---
 
@@ -35,10 +36,24 @@ harga diperbarui**, membaca artikel, lalu menghubungi usaha melalui **WhatsApp**
 terisi. Pemesanan dan kesepakatan transaksi tetap dilakukan di WhatsApp. **[Dikonfirmasi]**
 
 Satu **mitra** memiliki satu akun untuk masuk ke **panel mitra**. Di panel itu mitra memperbarui stok dan
-harga secara manual, mengonfirmasi ulang data yang tidak berubah, dan mengedit dua artikel yang sudah
-disediakan. **[Dikonfirmasi]**
+harga secara manual, mengonfirmasi ulang data yang tidak berubah, mengedit dua artikel yang sudah
+disediakan, dan mengganti nama usaha. **[Dikonfirmasi]**
 
 Website ini **bukan toko online**: tidak ada keranjang, checkout, pembayaran, atau akun pembeli.
+
+### 1.1 Identitas usaha (data dari klien, 17 November 2026)
+
+| Item | Data | Status |
+|---|---|---|
+| Nama usaha | **Juki Fish Farm** | **[Dikonfirmasi]** sebagai nama awal. **Mitra dapat menggantinya sendiri dari panel** (Q-21 terjawab). Nama disimpan di tabel pengaturan di database dan dipakai di seluruh website (§12.7). |
+| Sejarah & gambaran usaha | `[[PLACEHOLDER: Sejarah dan gambaran usaha]]` | Menyusul dari klien (K5). |
+| Lokasi usaha | Jl. Setia Bersama, RT 05/RW 11, Kelurahan Meruyung, Kecamatan Limo, Kota Depok, Provinsi Jawa Barat | **[Dikonfirmasi]** (penulisan RT 05/RW 11 dikonfirmasi klien) |
+| Tautan peta | https://share.google/u0j1tZY5Q6MoMTD5P | **[Dikonfirmasi]**. Tautan berbagi Google. Klien mengonfirmasi tautan ini membuka titik lokasi yang benar. |
+| Produk | **Ikan nila saja** (satu produk) | **[Dikonfirmasi]**: menjawab Q-01 dan mengonfirmasi A-01. |
+| Harga | **Rp32.000 / kg** | **[Dikonfirmasi]** sebagai harga saat ini. Harga tetap diisi dan diperbarui mitra lewat panel (BR-H9). |
+| Layanan | Penjualan ikan secara online. Pemesanan dan transaksi dilayani **lewat chat WhatsApp**. | **[Dikonfirmasi]**: sesuai cakupan MVP (tanpa checkout/pembayaran di website). |
+| Nomor WhatsApp | **+62 815-7572-3540** (`6281575723540`) | **[Dikonfirmasi]**. Dipasang lewat konfigurasi lingkungan, bukan di kode (BR-WA5). |
+| Foto usaha | `[[PLACEHOLDER: Foto usaha]]` | Menyusul. Klien akan mengirim (K3, K4). |
 
 ---
 
@@ -46,9 +61,11 @@ Website ini **bukan toko online**: tidak ada keranjang, checkout, pembayaran, at
 
 ### 2.1 Latar belakang
 
-Usaha ini menjual ikan nila dan membutuhkan kanal resmi di internet. Calon pembeli bisa mendapatkan
-informasi dasar di sana sebelum menghubungi penjual. Bagian ini disusun dari kebutuhan yang telah
-disepakati, bukan dari data bisnis klien. Profil usaha yang sebenarnya akan diisi setelah bahan tersedia.
+**Juki Fish Farm** berlokasi di Meruyung, Limo, Kota Depok, dan hanya menjual **ikan nila** dengan harga
+saat ini **Rp32.000/kg**. Usaha ini ingin menjual secara online, dengan pemesanan tetap dilayani lewat
+chat WhatsApp. Untuk itu usaha membutuhkan kanal resmi di internet agar calon pembeli bisa mendapatkan
+informasi dasar sebelum menghubungi penjual. Sejarah dan gambaran usaha belum diberikan klien, jadi bagian
+profil akan dilengkapi setelah bahan tersedia.
 
 ### 2.2 Masalah yang ingin diselesaikan
 
@@ -128,6 +145,7 @@ Kebanyakan diperkirakan membuka website dari HP.
 | Menandai bahwa data sudah diperiksa walau angkanya sama | Tombol simpan/konfirmasi tetap bisa dipakai tanpa mengubah angka. |
 | Yakin penyimpanan berhasil | Pesan berhasil/gagal yang jelas, lengkap dengan angka dan waktu yang tersimpan. |
 | Memperbaiki artikel | Mengedit judul dan isi dua artikel yang sudah tersedia. |
+| Mengganti nama usaha | Halaman pengaturan berisi satu kolom nama usaha. Nama baru tampil di seluruh website tanpa bantuan pengembang. |
 
 ### 4.3 Pemilik usaha / klien dan tim pengembang (pengguna sekunder)
 
@@ -142,8 +160,9 @@ Kebanyakan diperkirakan membuka website dari HP.
 ### 5.1 Halaman publik
 
 1. Beranda / landing page.
-2. Katalog atau bagian produk ikan nila. Untuk MVP berisi satu produk utama **[Asumsi A-01]**.
-3. Profil usaha (placeholder sampai bahan tersedia).
+2. Katalog atau bagian produk ikan nila. Berisi satu produk: ikan nila **[Dikonfirmasi, §1.1]**.
+3. Profil usaha: nama dan lokasi sudah tersedia. Sejarah/gambaran dan foto berupa placeholder sampai
+   bahan tersedia.
 4. Daftar artikel dan detail artikel (dua artikel).
 5. Kontak.
 6. Tombol pesan melalui WhatsApp.
@@ -157,7 +176,8 @@ Kebanyakan diperkirakan membuka website dari HP.
 5. Menyimpan atau mengonfirmasi kembali stok dan harga.
 6. Melihat waktu terakhir data produk dikonfirmasi.
 7. Mengedit judul dan isi dua artikel yang sudah disediakan.
-8. Logout.
+8. Mengganti nama usaha (§12.7).
+9. Logout.
 
 ### 5.3 Tombol WhatsApp
 
@@ -181,6 +201,8 @@ Kebanyakan diperkirakan membuka website dari HP.
 - Aplikasi mobile terpisah.
 - Manajemen banyak mitra.
 - Fitur bagi mitra untuk menambah dan menghapus artikel.
+- Mengubah info usaha **selain nama** (alamat, tautan peta, jam operasional, profil) dari panel. Info itu
+  diubah pengembang di MVP (A-18).
 
 ### 6.1 Pengembangan berikutnya **[Saran]** (bukan kebutuhan wajib MVP)
 
@@ -195,7 +217,7 @@ Kebanyakan diperkirakan membuka website dari HP.
 | Unggah/ganti foto dari panel | Mitra bisa mengganti foto sendiri. | Perlu penyimpanan file terpisah. Lihat Q-12. |
 | Hitungan klik tombol WhatsApp | Mengukur minat pengunjung. | Analitik sederhana, bukan dashboard kompleks. |
 | Autentikasi dua langkah (MFA) untuk mitra | Keamanan akun lebih tinggi. | Didukung Supabase Auth. |
-| Data terstruktur SEO (LocalBusiness) | Tampil lebih baik di mesin pencari. | Hanya setelah alamat asli dikonfirmasi. |
+| Data terstruktur SEO (LocalBusiness) | Tampil lebih baik di mesin pencari. | Alamat sudah diberikan klien (§1.1). Jam operasional masih menunggu. |
 | Domain khusus | Alamat website lebih profesional. | Lihat Q-14. |
 
 ---
@@ -206,17 +228,18 @@ URL di bawah adalah usulan. Detail route ada di `ARCHITECTURE.md` §6.
 
 | Halaman | URL usulan | Akses | Fungsi utama | Konten placeholder |
 |---|---|---|---|---|
-| Beranda | `/` | Publik | Perkenalan usaha, ringkasan produk (stok, harga, waktu pembaruan), cuplikan profil, artikel, ajakan WhatsApp. | Nama usaha, tagline, foto, deskripsi singkat. |
+| Beranda | `/` | Publik | Perkenalan usaha, ringkasan produk (stok, harga, waktu pembaruan), cuplikan profil, artikel, ajakan WhatsApp. | Tagline, foto, deskripsi singkat. (Nama usaha sudah tersedia.) |
 | Katalog produk | `/produk` | Publik | Daftar produk aktif. Untuk MVP satu produk "Ikan Nila", disertai stok, harga, waktu pembaruan, dan tombol WhatsApp. | Foto & deskripsi produk. |
 | Detail produk | `/produk/ikan-nila` | Publik | Informasi lengkap produk, status stok, harga/kg, waktu pembaruan, keterangan arti waktu, tombol WhatsApp. | Foto & deskripsi produk. |
-| Profil usaha | `/profil` | Publik | Profil dan deskripsi usaha. | Seluruh isi. |
+| Profil usaha | `/profil` | Publik | Nama usaha, lokasi, sejarah dan gambaran usaha. | Sejarah & gambaran usaha, foto usaha. (Nama & lokasi sudah tersedia.) |
 | Daftar artikel | `/artikel` | Publik | Daftar dua artikel (judul, cuplikan). | Judul & isi artikel. |
 | Detail artikel | `/artikel/[slug]` | Publik | Isi lengkap artikel. | Judul & isi artikel. |
-| Kontak | `/kontak` | Publik | Tombol WhatsApp, alamat, jam operasional. | Alamat, jam operasional, nomor WhatsApp. |
+| Kontak | `/kontak` | Publik | Tombol WhatsApp, alamat + tautan Google Maps, jam operasional. | Jam operasional. (Alamat, tautan peta, dan nomor WhatsApp sudah tersedia.) |
 | Login mitra | `/mitra/login` | Tamu | Form email + password. | — |
 | Panel: stok & harga | `/mitra` | Mitra | Melihat data tersimpan, mengubah stok/harga, menyimpan/konfirmasi ulang, melihat waktu konfirmasi terakhir. | — |
 | Panel: daftar artikel | `/mitra/artikel` | Mitra | Daftar dua artikel yang bisa diedit. | — |
 | Panel: edit artikel | `/mitra/artikel/[slug]` | Mitra | Edit judul & isi, pratinjau, simpan. | — |
+| Panel: pengaturan usaha | `/mitra/pengaturan` | Mitra | Melihat dan mengganti nama usaha, simpan. | — |
 | Halaman tidak ditemukan | (otomatis) | Publik | Pesan 404 yang ramah dan tautan kembali. | — |
 
 Tombol logout tersedia di header panel, bukan sebagai halaman tersendiri.
@@ -256,6 +279,7 @@ bila sempat, **Later** = pengembangan berikutnya.
 | US-17 | Mitra | Mendapat pesan jelas saat penyimpanan berhasil atau gagal | Saya tidak ragu apakah data sudah tersimpan | Must | Dikonfirmasi |
 | US-18 | Mitra | Mengedit judul dan isi dua artikel | Artikel bisa saya perbaiki tanpa pengembang | Must | Dikonfirmasi |
 | US-19 | Mitra | Logout | Akun aman bila memakai perangkat bersama | Must | Dikonfirmasi |
+| US-27 | Mitra | Mengganti nama usaha dari panel | Nama di website sesuai keinginan usaha tanpa menunggu pengembang | Must | Dikonfirmasi (Q-21) |
 | US-20 | Mitra | Melihat pratinjau artikel sebelum menyimpan | Saya yakin tampilannya benar | Should | Saran |
 | US-21 | Mitra | Diberi peringatan sebelum menyimpan harga Rp0 | Saya tidak salah ketik | Should | Saran (Q-05) |
 | US-22 | Mitra | Mengganti password sendiri | Akun lebih aman | Later | Saran (Q-11) |
@@ -363,6 +387,18 @@ flowchart TD
    artikel **tidak berubah** walaupun judulnya diganti **[Asumsi A-11]**.
 6. Mengedit artikel **tidak** mengubah waktu pembaruan stok & harga.
 
+### 9.5 Mitra mengganti nama usaha
+
+1. Mitra membuka menu **Pengaturan** di panel. Formulir menampilkan nama usaha yang sedang tampil
+   (awalnya "Juki Fish Farm").
+2. Mitra mengetik nama baru, lalu menekan **Simpan**. Tombol nonaktif selama proses.
+3. Jika valid dan berhasil, muncul pesan "Nama usaha disimpan: {nama baru}".
+4. Pengunjung yang membuka atau memuat ulang halaman mana pun melihat nama baru di header, footer, judul
+   tab browser, dan pesan WhatsApp terisi. Tidak perlu bantuan pengembang atau redeploy.
+5. Jika gagal (tidak valid, sesi berakhir, gangguan), muncul pesan gagal, isian tetap ada, dan nama lama
+   tetap tampil.
+6. Mengganti nama **tidak** mengubah waktu pembaruan stok & harga, URL halaman, atau isi artikel.
+
 ---
 
 ## 10. Kebutuhan fungsional
@@ -380,9 +416,9 @@ flowchart TD
 | FR-09 | Tombol WhatsApp membuka WhatsApp dengan pesan terisi yang menyebutkan nama produk. | Must | Dikonfirmasi | AC-13, AC-16 |
 | FR-10 | Jika nomor WhatsApp belum dikonfigurasi atau tidak valid, tombol nonaktif dengan keterangan jelas dan tanpa tautan ke nomor mana pun. | Must | Dikonfirmasi | AC-14 |
 | FR-11 | Klik WhatsApp dan transaksi tidak mengubah stok. | Must | Dikonfirmasi | AC-15 |
-| FR-12 | Halaman profil usaha dengan konten placeholder yang mudah diganti. | Must | Dikonfirmasi | AC-36 |
+| FR-12 | Halaman profil usaha: nama dan lokasi dari klien. Sejarah/gambaran usaha dan foto berupa placeholder yang mudah diganti sampai tersedia. | Must | Dikonfirmasi | AC-36 |
 | FR-13 | Halaman daftar artikel dan detail artikel untuk artikel yang dipublikasikan. | Must | Dikonfirmasi | AC-35 |
-| FR-14 | Halaman kontak: WhatsApp, alamat, jam operasional (placeholder sampai tersedia). | Must | Dikonfirmasi | AC-14, AC-36 |
+| FR-14 | Halaman kontak: tombol WhatsApp, alamat + tautan Google Maps (tersedia), jam operasional (placeholder sampai tersedia). | Must | Dikonfirmasi | AC-14, AC-36 |
 | FR-15 | Login mitra dengan email + password. Tidak ada pendaftaran publik. | Must | Dikonfirmasi / A-08 | AC-17–AC-22 |
 | FR-16 | Hanya satu akun yang secara eksplisit diizinkan yang dapat mengakses panel dan mengubah data. Pembatasan ini ditegakkan di server dan database. | Must | Dikonfirmasi | AC-19–AC-21 |
 | FR-17 | Panel menampilkan stok, harga, dan waktu konfirmasi terakhir yang tersimpan. | Must | Dikonfirmasi | AC-25 |
@@ -399,6 +435,8 @@ flowchart TD
 | FR-28 | Peringatan konfirmasi sebelum menyimpan harga Rp0. | Should | Saran / Q-05 | AC-34 |
 | FR-29 | Tombol WhatsApp mengambang di halaman publik. | Should | Saran | AC-13 |
 | FR-30 | Halaman panel tidak diindeks mesin pencari. Seluruh situs `noindex` sampai konten asli siap. | Must | Saran (A-17) | AC-44 |
+| FR-31 | Panel menyediakan halaman pengaturan untuk melihat dan mengganti nama usaha. Hanya mitra yang diizinkan yang dapat menyimpan, dan pembatasan ini ditegakkan di database. | Must | Dikonfirmasi (Q-21) | AC-45–AC-48 |
+| FR-32 | Nama usaha yang tampil di seluruh website (header, footer, judul halaman, gambar bagikan, pesan WhatsApp) diambil dari pengaturan dan berubah setelah disimpan, paling lambat saat halaman dimuat ulang, tanpa redeploy. | Must | Dikonfirmasi (Q-21) | AC-46, AC-49 |
 
 ---
 
@@ -475,6 +513,9 @@ Tabel tampilan stok di halaman publik:
 | BR-H6 | Mitra dapat memperbarui harga kapan saja. | Dikonfirmasi |
 | BR-H7 | Batas wajar input harga: **Rp0 – Rp10.000.000 per kg** untuk menangkap salah ketik. Nilai ini dapat disesuaikan. | Asumsi A-07 |
 | BR-H8 | Formulir menerima `35000`, `35.000`, atau `Rp 35.000`. Input dengan sen/koma (mis. `35.000,50`) ditolak dengan pesan "Harga harus dalam rupiah bulat". | Asumsi A-02 |
+| BR-H9 | Harga saat ini menurut klien adalah **Rp32.000/kg**. Harga ini **tidak** ditanam di kode atau data awal. Mitra mengisinya lewat panel bersama stok pada penyimpanan pertama (saat UAT/peluncuran), sehingga waktu konfirmasi yang tampil benar-benar berasal dari mitra. Sebelum itu, harga tampil "Belum tersedia". | Dikonfirmasi (nilai) / Saran (cara pengisian) |
+
+Angka `35000` pada contoh format di dokumen ini hanya ilustrasi, bukan harga Juki Fish Farm.
 
 ### 12.3 Waktu pembaruan
 
@@ -484,7 +525,7 @@ Tabel tampilan stok di halaman publik:
 | BR-W2 | Waktu disimpan konsisten di database (UTC) dan ditampilkan dalam zona **Asia/Jakarta** dengan keterangan **WIB**, mis. "17 November 2026 pukul 14.05 WIB". | Dikonfirmasi |
 | BR-W3 | **Arti waktu:** waktu ini adalah **saat terakhir mitra menyimpan atau mengonfirmasi ulang stok dan harga di website**. Waktu ini **bukan jaminan** kondisi stok saat ini. | Dikonfirmasi |
 | BR-W4 | Mitra dapat menyimpan/mengonfirmasi ulang angka yang sama. Waktu tetap diperbarui. | Dikonfirmasi |
-| BR-W5 | Waktu **hanya** diperbarui oleh aksi "Simpan & Konfirmasi" stok & harga. Edit artikel, perubahan nama/deskripsi/foto produk oleh pengembang, login/logout, dan perubahan lain **tidak** mengubah waktu ini. | Dikonfirmasi (mekanisme di `ARCHITECTURE.md` §11) |
+| BR-W5 | Waktu **hanya** diperbarui oleh aksi "Simpan & Konfirmasi" stok & harga. Edit artikel, penggantian nama usaha, perubahan nama/deskripsi/foto produk oleh pengembang, login/logout, dan perubahan lain **tidak** mengubah waktu ini. | Dikonfirmasi (mekanisme di `ARCHITECTURE.md` §11) |
 | BR-W6 | Stok dan harga berbagi **satu** waktu konfirmasi karena keduanya disimpan bersama dalam satu aksi. | Asumsi A-04 |
 | BR-W7 | Jika data belum pernah dikonfirmasi, tampil "Belum pernah diperbarui". | Saran |
 | BR-W8 | Waktu dicatat oleh **server/database**, bukan oleh jam perangkat mitra. | Saran (keandalan) |
@@ -505,7 +546,7 @@ Tanggal pada contoh di atas hanya ilustrasi format.
 | BR-WA2 | Pesan dapat menyebutkan nama produk dan tautan halaman produk. | Dikonfirmasi |
 | BR-WA3 | Jika nomor belum dikonfigurasi atau formatnya tidak valid, tombol **nonaktif**, bertuliskan "Nomor WhatsApp belum tersedia", dan **tidak** memiliki tautan ke nomor mana pun. Tidak ada nomor cadangan/contoh. | Dikonfirmasi |
 | BR-WA4 | Pesan terisi **tidak** mencantumkan angka stok/harga. Angka bisa sudah berubah dan memicu salah paham. | Asumsi A-14 |
-| BR-WA5 | Nomor WhatsApp diatur oleh pengembang melalui konfigurasi (bukan dari panel di MVP). | Asumsi A-13 |
+| BR-WA5 | Nomor WhatsApp diatur oleh pengembang melalui konfigurasi (bukan dari panel di MVP). Nomor production: **`6281575723540`** (+62 815-7572-3540), satu nomor untuk semua pertanyaan dan pesanan. | Dikonfirmasi (nomor) / Asumsi A-13 (cara konfigurasi) |
 | BR-WA6 | Tombol tetap aktif saat stok habis atau belum tersedia, dengan pesan yang sesuai kondisi. | Dikonfirmasi |
 
 Usulan isi pesan terisi **[Saran, menunggu Q-08]**:
@@ -515,7 +556,10 @@ Usulan isi pesan terisi **[Saran, menunggu Q-08]**:
 | Produk tersedia | "Halo, saya melihat produk Ikan Nila di website dan ingin bertanya/memesan. Apakah masih tersedia? {tautan produk}" |
 | Stok habis | "Halo, di website tertulis stok Ikan Nila sedang habis. Apakah ada perkiraan kapan tersedia lagi? {tautan produk}" |
 | Stok belum tersedia | "Halo, saya ingin menanyakan ketersediaan dan harga Ikan Nila. {tautan produk}" |
-| Umum (halaman kontak/header) | "Halo, saya ingin bertanya tentang ikan nila." |
+| Umum (halaman kontak/header) | "Halo Juki Fish Farm, saya ingin bertanya tentang ikan nila." |
+
+Nama usaha di templat diambil dari pengaturan usaha (`{businessName}`), jadi ikut berubah bila mitra
+mengganti nama (§12.7).
 
 ### 12.5 Artikel
 
@@ -536,6 +580,18 @@ Usulan isi pesan terisi **[Saran, menunggu Q-08]**:
 | BR-K1 | Data usaha yang belum tersedia ditampilkan sebagai placeholder yang jelas, mis. "[Alamat belum tersedia]". | Dikonfirmasi |
 | BR-K2 | Dilarang menampilkan data realistis palsu (alamat contoh, nomor contoh, harga contoh, testimoni, foto stok yang terkesan foto asli usaha). | Dikonfirmasi |
 | BR-K3 | Sebelum peluncuran, seluruh placeholder wajib diganti atau disembunyikan sesuai daftar periksa peluncuran (§18). | Saran |
+
+### 12.7 Pengaturan usaha (nama usaha)
+
+| ID | Aturan | Status |
+|---|---|---|
+| BR-P1 | Nama usaha disimpan di database sebagai **satu baris pengaturan**. Nilai awal: **"Juki Fish Farm"**. | Dikonfirmasi (Q-21) |
+| BR-P2 | Hanya akun mitra yang diizinkan yang dapat mengganti nama usaha. Pengunjung hanya dapat membacanya. | Dikonfirmasi |
+| BR-P3 | Nama wajib diisi: **2–80 karakter** setelah spasi di awal/akhir dibuang, tanpa baris baru. Nama ditampilkan sebagai teks biasa (kode/skrip tidak dijalankan). | Asumsi A-20 (dapat disesuaikan) |
+| BR-P4 | Nama baru tampil di semua halaman publik paling lambat saat halaman dibuka/dimuat ulang setelah disimpan, **tanpa redeploy**. Tidak perlu realtime. | Dikonfirmasi |
+| BR-P5 | Mengganti nama **tidak** mengubah waktu konfirmasi stok & harga, URL halaman, maupun isi artikel. Nama lama yang tertulis di dalam isi artikel tidak ikut diganti otomatis. Mitra mengeditnya sendiri bila perlu. | Dikonfirmasi / Saran |
+| BR-P6 | Bila pengaturan tidak dapat dimuat dan belum ada salinan tersimpan, website menampilkan nama netral **"Ikan Nila"**, bukan nama usaha yang mungkin sudah diganti. Kejadian ini dicatat di log. | Saran |
+| BR-P7 | Di MVP, hanya **nama usaha** yang dapat diubah mitra. Info usaha lain tetap diubah pengembang (A-18). | Dikonfirmasi |
 
 ---
 
@@ -593,7 +649,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | AC-29 | **Gagal menyimpan (gangguan jaringan/database).** Ketika penyimpanan gagal, maka muncul pesan "Gagal menyimpan. Data sebelumnya tidak berubah. Silakan coba lagi.", **tidak** ada pesan berhasil, isian formulir tetap ada, dan database tetap berisi nilai lama (tidak ada perubahan sebagian). |
 | AC-30 | **Tidak tersimpan ganda.** Ketika tombol Simpan ditekan, maka tombol nonaktif dan bertuliskan "Menyimpan…" sampai proses selesai. |
 | AC-31 | **Konfirmasi ulang tanpa perubahan angka.** Diberikan stok 10 kg dan harga 35000 dengan waktu konfirmasi T1. Ketika mitra menekan Simpan & Konfirmasi tanpa mengubah angka pada waktu T2, maka muncul pesan "Data dikonfirmasi ulang (tidak ada perubahan angka)", angka tetap 10 kg & 35000, dan waktu konfirmasi menjadi T2. Halaman publik menampilkan T2 setelah dimuat ulang. |
-| AC-32 | **Perubahan lain tidak mengubah waktu konfirmasi.** Diberikan waktu konfirmasi T1. Ketika mitra mengedit artikel, login/logout, atau pengembang mengubah nama/deskripsi/foto produk, maka waktu konfirmasi tetap T1. |
+| AC-32 | **Perubahan lain tidak mengubah waktu konfirmasi.** Diberikan waktu konfirmasi T1. Ketika mitra mengedit artikel, mengganti nama usaha, login/logout, atau pengembang mengubah nama/deskripsi/foto produk, maka waktu konfirmasi tetap T1. |
 | AC-33 | **Menyimpan stok 0.** Ketika mitra menyimpan stok `0`, maka berhasil tersimpan dan halaman publik menampilkan "Stok habis". |
 | AC-34 | **Menyimpan harga 0.** Ketika mitra mengisi harga `0`, maka panel meminta konfirmasi ("Harga Rp0 akan tampil di website. Lanjutkan?"). Jika dikonfirmasi, harga tersimpan 0 dan publik menampilkan "Rp0 / kg". Jika dibatalkan, tidak ada yang tersimpan. |
 
@@ -617,7 +673,18 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | AC-43 | **Aksesibilitas dasar.** Semua fungsi dapat dijalankan dengan keyboard. Semua input memiliki label. Pemeriksaan otomatis (axe) tidak menemukan pelanggaran tingkat *critical/serious*. |
 | AC-44 | **Indeks mesin pencari.** Halaman `/mitra/*` selalu `noindex` dan tidak ada di sitemap. Sebelum peluncuran resmi, seluruh situs `noindex`. |
 
-### 13.7 Matriks pembeda (ringkasan)
+### 13.7 Panel — nama usaha
+
+| ID | Kriteria |
+|---|---|
+| AC-45 | **Melihat nama tersimpan.** Ketika mitra membuka `/mitra/pengaturan`, maka formulir terisi nama usaha yang sedang tampil di website (awalnya "Juki Fish Farm"). |
+| AC-46 | **Berhasil mengganti nama.** Ketika mitra mengisi nama baru yang valid lalu menekan Simpan, maka muncul pesan berhasil yang menyebutkan nama baru. Setelah halaman publik dimuat ulang, header, footer, judul tab, dan pesan WhatsApp terisi memakai nama baru, **tanpa redeploy**. Diuji pada build produksi di Vercel, bukan hanya mode pengembangan. |
+| AC-47 | **Validasi nama.** Ketika nama dikosongkan, hanya berisi spasi, kurang dari 2 karakter, lebih dari 80 karakter, atau mengandung baris baru, maka penyimpanan ditolak dengan pesan pada kolom, dan nama di database tidak berubah. |
+| AC-48 | **Hak akses nama usaha.** Ketika pengguna tanpa login, akun yang tidak diizinkan, atau panggilan API langsung mencoba mengganti nama, maka ditolak dan nama tidak berubah. Akun mitra pun tidak dapat menambah atau menghapus baris pengaturan, dan tidak dapat mengubah kolom selain nama. |
+| AC-49 | **Isolasi & kegagalan.** Diberikan waktu konfirmasi stok T1. Ketika mitra mengganti nama, maka waktu konfirmasi tetap T1, URL halaman tidak berubah, dan isi artikel tidak berubah. Bila penyimpanan gagal, muncul pesan gagal, isian tetap ada, dan nama lama tetap tampil. |
+| AC-50 | **Render aman.** Diberikan nama berisi `<b>Ikan</b>` atau `<script>`. Ketika halaman dibuka, maka teks tampil apa adanya sebagai teks biasa dan tidak ada skrip yang berjalan. |
+
+### 13.8 Matriks pembeda (ringkasan)
 
 | Kondisi yang wajib dibedakan | Kondisi A | Kondisi B | AC |
 |---|---|---|---|
@@ -635,7 +702,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 
 | ID | Asumsi | Dampak jika berubah |
 |---|---|---|
-| A-01 | MVP memiliki **satu produk utama** bernama "Ikan Nila". Tidak ada varian, ukuran, kondisi, atau kategori yang dikarang. | Kecil: struktur data mendukung banyak produk (lihat `ARCHITECTURE.md` §8). |
+| A-01 | **[Dikonfirmasi klien, 17 Nov 2026]** Hanya **satu produk**: "Ikan Nila". Tidak ada varian, ukuran, kondisi, atau kategori yang dikarang. | Kecil: struktur data tetap mendukung banyak produk (lihat `ARCHITECTURE.md` §8). |
 | A-02 | Harga disimpan dalam **rupiah bulat** (tanpa sen). | Kecil: perlu ubah tipe kolom dan validasi. |
 | A-03 | Presisi stok **2 desimal** (0,01 kg). Input menerima koma/titik desimal, tanpa pemisah ribuan. | Kecil: ubah presisi kolom/validasi. |
 | A-04 | Stok dan harga disimpan bersama dalam satu aksi dan berbagi **satu waktu konfirmasi**. | Sedang: waktu terpisah per kolom memerlukan kolom & UI tambahan. |
@@ -647,13 +714,14 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | A-10 | Isi artikel memakai format teks dasar (Markdown terbatas) tanpa HTML dan tanpa gambar di dalam isi. Gambar sampul (jika ada) dikelola pengembang. | Sedang bila perlu editor kaya/gambar. |
 | A-11 | Slug/URL artikel ditetapkan pengembang dan tidak berubah saat judul diedit. | Kecil. |
 | A-12 | Foto dikelola pengembang sebagai file statis. Mitra tidak mengunggah foto di MVP. | Sedang: perlu penyimpanan file (lihat Q-12). |
-| A-13 | Nomor WhatsApp diatur pengembang melalui konfigurasi lingkungan (environment variable), bukan dari panel. | Kecil–sedang. |
+| A-13 | Nomor WhatsApp (`6281575723540`, dari klien) diatur pengembang melalui konfigurasi lingkungan (environment variable), bukan dari panel. | Kecil–sedang. |
 | A-14 | Pesan WhatsApp terisi tidak mencantumkan angka stok/harga, hanya nama produk dan tautan. | Kecil: ubah templat. |
 | A-15 | Situs hanya berbahasa Indonesia. | Sedang bila perlu multibahasa. |
 | A-16 | Tahap awal memakai **domain bawaan Vercel** (`<nama-proyek>.vercel.app`). | Kecil: domain khusus bisa ditambahkan kemudian. |
 | A-17 | Seluruh situs diberi `noindex` sampai konten asli lengkap. | Kecil. |
-| A-18 | Informasi usaha (nama, profil, alamat, jam operasional) disimpan di file konfigurasi dan diubah oleh pengembang, bukan dari panel. | Sedang bila mitra perlu mengubahnya sendiri. |
+| A-18 | Informasi usaha **selain nama** (profil, alamat, tautan peta, jam operasional) disimpan di file konfigurasi dan diubah oleh pengembang (lalu redeploy). **Nama usaha** disimpan di tabel pengaturan dan diubah mitra dari panel (Q-21, §12.7). | Sedang bila info lain juga perlu diubah mitra: tambah kolom pengaturan + formulir. |
 | A-19 | Database ditempatkan di region terdekat dengan Indonesia (Singapura). | Kecil. |
+| A-20 | Panjang nama usaha 2–80 karakter, tanpa baris baru. | Kecil: ubah batas validasi. |
 
 ---
 
@@ -661,15 +729,15 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 
 | ID | Pertanyaan | Mengapa penting | Default sementara bila belum dijawab |
 |---|---|---|---|
-| Q-01 | Apakah ikan nila dijual dalam **satu pilihan** saja, atau ada beberapa pilihan (mis. ukuran, hidup/segar/beku, utuh/fillet)? Jika ada, apakah stok & harga dicatat per pilihan? | Menentukan jumlah baris produk dan tampilan katalog. | Satu produk (A-01). |
-| Q-02 | Kapan bahan berikut tersedia: nama usaha, logo, foto, profil, alamat, nomor WhatsApp, jam operasional, isi dua artikel? | Menentukan jadwal peluncuran. | Placeholder. |
+| Q-01 | **[Terjawab 17 Nov 2026]** ~~Apakah ikan nila dijual dalam satu pilihan saja?~~ Jawaban: ikan nila saja, satu produk, Rp32.000/kg. | Menentukan jumlah baris produk dan tampilan katalog. | — |
+| Q-02 | **[Sebagian terjawab]** Nama usaha, alamat, tautan peta, dan nomor WhatsApp sudah diberikan. Kapan bahan berikut tersedia: **sejarah & gambaran usaha, foto usaha/produk, logo, jam operasional, isi dua artikel**? | Menentukan jadwal peluncuran. | Placeholder. |
 | Q-03 | Apakah harga perlu sen/desimal? | Tipe data harga. | Rupiah bulat (A-02). |
 | Q-04 | Seberapa teliti stok perlu dicatat: 0,1 kg atau 0,01 kg? | Presisi input/tampilan. | 0,01 kg (A-03). |
 | Q-05 | Apakah harga Rp0 bermakna secara bisnis (mis. promo), atau sebaiknya ditolak? | Aturan validasi harga. | Diizinkan dengan peringatan (A-06). |
 | Q-06 | Apakah ada harga grosir, minimal pembelian, atau harga berbeda per jumlah? | Bisa memengaruhi struktur data harga. | Satu harga per kg. |
 | Q-07 | Perlukah label "data mungkin sudah lama" bila stok tidak diperbarui lebih dari X jam? Berapa X? | Kejujuran informasi. | Tidak ada label. Keterangan umum selalu tampil. |
 | Q-08 | Seperti apa isi pesan WhatsApp yang diinginkan? Perlu menanyakan jumlah kg, nama, atau lokasi pembeli? | Templat pesan. | Usulan di §12.4. |
-| Q-09 | Apakah hanya ada satu nomor WhatsApp untuk semua pertanyaan? Apakah nomor itu dipegang mitra? | Konfigurasi WhatsApp. | Satu nomor. |
+| Q-09 | **[Sebagian terjawab]** Satu nomor untuk semua layanan chat: `6281575723540`. Masih perlu dijawab: apakah nomor itu dipegang mitra yang juga memperbarui stok? | Konfigurasi WhatsApp & siapa yang membalas chat. | Satu nomor. |
 | Q-10 | **Siapa pemilik akun Vercel, Supabase, dan domain, dan siapa yang menanggung biaya?** Menurut ketentuan Vercel, paket gratis (Hobby) hanya untuk penggunaan pribadi non-komersial, sehingga website usaha memerlukan paket berbayar (Pro). | Menghambat deployment produksi. | Akun atas nama/milik klien (saran). |
 | Q-11 | Apakah mitra memiliki email aktif untuk login? Perlukah fitur ganti/lupa password mandiri? | Mekanisme akun. | Reset oleh pengembang (A-09). |
 | Q-12 | Apakah mitra perlu mengganti foto produk/artikel sendiri? | Kebutuhan penyimpanan file. | Tidak (A-12). |
@@ -681,6 +749,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | Q-18 | Perangkat apa yang paling sering dipakai mitra (HP Android/iPhone/laptop)? | Prioritas uji panel. | HP Android. |
 | Q-19 | Apakah ada klaim tertentu yang **boleh** atau **tidak boleh** ditampilkan (mis. asal budidaya, sertifikasi)? | Mencegah klaim keliru. | Tidak ada klaim. |
 | Q-20 | Apakah tim pengembang lebih terbiasa dengan TypeScript/React atau PHP/Laravel? | Memengaruhi pilihan stack (lihat `ARCHITECTURE.md` §1). | TypeScript/Next.js. |
+| Q-21 | **[Terjawab 17 Nov 2026]** ~~Siapa yang mengubah nama usaha?~~ Jawaban: **mitra dari panel**. Perlu tabel pengaturan baru (§12.7, `ARCHITECTURE.md` §8.7). | Menambah cakupan: tabel pengaturan, halaman panel, strategi cache nama. | — |
 
 ---
 
@@ -692,7 +761,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 |---|---|---|---|---|
 | R1 | Mitra jarang memperbarui stok, sehingga data usang. | Tinggi (kepercayaan) | Sedang | Waktu pembaruan + keterangan arti waktu, panel cepat di HP, konfirmasi ulang 1 klik. Pengingat/label data lama di tahap berikutnya. |
 | R2 | Konten klien terlambat. | Sedang (jadwal) | Tinggi | Placeholder jelas, `noindex` sampai siap, daftar periksa peluncuran. |
-| R3 | Nomor WhatsApp belum tersedia saat UAT. | Sedang | Sedang | Tombol nonaktif yang jelas. Tanpa nomor palsu. |
+| R3 | Nomor WhatsApp salah ketik di konfigurasi atau tidak aktif. (Nomor sudah diberikan klien: `6281575723540`.) | Sedang | Rendah | Validasi format nomor saat build, uji klik ke nomor tersebut saat UAT, tombol nonaktif bila konfigurasi kosong/tidak valid. |
 | R4 | Biaya hosting tidak diantisipasi (Vercel Pro untuk penggunaan komersial, kemungkinan Supabase Pro). | Sedang | Tinggi | Dibahas di Q-10 sebelum deployment produksi. |
 | R5 | Database paket gratis **dijeda otomatis** bila sepi aktivitas (Supabase menjeda proyek paket gratis yang aktivitasnya rendah selama 7 hari). | Tinggi (data produk tidak tampil) | Sedang | Paket berbayar untuk produksi, atau keputusan sadar menerima risiko. Halaman tetap tampil dengan pesan gangguan + WhatsApp (NFR-21). |
 | R6 | Kredensial mitra bocor. | Tinggi | Rendah | Password kuat, tanpa registrasi publik, hak akses di database, sesi bisa dicabut, MFA di tahap berikutnya. |
@@ -701,6 +770,8 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | R9 | Cache membuat data lama tampil. | Tinggi | Rendah | Data produk selalu dibaca saat halaman diminta + uji di build produksi (`ARCHITECTURE.md` §12). |
 | R10 | Foto tanpa hak pakai. | Sedang (hukum) | Rendah | Hanya foto milik klien atau berlisensi jelas. Tidak mengambil dari situs referensi. |
 | R11 | Lupa password tanpa layanan email. | Rendah–sedang | Sedang | Reset oleh pengembang (A-09). SMTP di tahap berikutnya. |
+| R12 | Mitra salah ketik nama usaha, dan nama itu langsung tampil di seluruh website. | Sedang (citra) | Rendah | Pesan berhasil menampilkan nama tersimpan, formulir menampilkan nama lama sebelum diganti, dan mitra dapat mengembalikannya kapan saja. |
+| R13 | Nama baru tidak muncul karena salinan nama tersimpan (cache) tidak diperbarui. | Sedang | Rendah | Cache nama dibersihkan setiap kali disimpan, diuji di build produksi Vercel (`ARCHITECTURE.md` §12.5). |
 
 ### 16.2 Ketergantungan
 
@@ -717,21 +788,21 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 
 | # | Konten/aset | Format yang disarankan | Dipakai di | Status |
 |---|---|---|---|---|
-| K1 | Nama usaha (resmi/tampilan) | Teks | Header, judul halaman, footer, pesan WhatsApp | Belum tersedia |
+| K1 | Nama usaha (resmi/tampilan) | Teks | Header, judul halaman, footer, pesan WhatsApp | **Tersedia**: Juki Fish Farm (nama awal, dapat diganti mitra dari panel) |
 | K2 | Logo | SVG atau PNG latar transparan, ≥ 512 px | Header, favicon, gambar bagikan (OG) | Belum tersedia |
-| K3 | Foto produk ikan nila | JPG/PNG, lebar ≥ 1600 px, milik sendiri | Beranda, katalog, detail produk | Belum tersedia |
-| K4 | Foto usaha (kolam/lapak/tim), opsional | JPG/PNG, lebar ≥ 1600 px | Beranda, profil | Belum tersedia |
-| K5 | Profil & deskripsi usaha | Teks (± 100–300 kata) | Profil, beranda | Belum tersedia |
+| K3 | Foto produk ikan nila | JPG/PNG, lebar ≥ 1600 px, milik sendiri | Beranda, katalog, detail produk | Menyusul (klien akan mengirim) |
+| K4 | Foto usaha (kolam/lapak/tim) | JPG/PNG, lebar ≥ 1600 px | Beranda, profil | Menyusul (klien akan mengirim) |
+| K5 | Sejarah, profil & gambaran usaha | Teks (± 100–300 kata) | Profil, beranda | Menyusul (klien sedang menyiapkan) |
 | K6 | Deskripsi singkat produk | Teks (± 30–80 kata) | Katalog, detail produk | Belum tersedia |
-| K7 | Alamat/lokasi (+ tautan Google Maps, opsional) | Teks + URL | Kontak, footer | Belum tersedia |
-| K8 | Nomor WhatsApp usaha | Format `08xx…` atau `+62…` | Tombol WhatsApp | Belum tersedia |
+| K7 | Alamat/lokasi (+ tautan Google Maps) | Teks + URL | Kontak, footer | **Tersedia** (§1.1). Alamat dan tautan peta sudah dikonfirmasi klien. |
+| K8 | Nomor WhatsApp usaha | Format `08xx…` atau `+62…` | Tombol WhatsApp | **Tersedia**: `6281575723540` |
 | K9 | Jam operasional | Teks per hari | Kontak, footer | Belum tersedia |
 | K10 | Bahan dua artikel | Judul, isi, gambar sampul (opsional), sumber jika mengutip | Halaman artikel | Belum tersedia |
 | K11 | Email mitra untuk akun panel | Alamat email aktif | Akun login | Belum tersedia |
 | K12 | Pernyataan hak pakai foto | Konfirmasi tertulis | Kepatuhan hak cipta | Belum tersedia |
 | K13 | Preferensi warna/gaya, opsional | Contoh/warna | Desain | Belum tersedia |
 | K14 | Tautan media sosial, opsional | URL | Footer | Belum tersedia |
-| K15 | Data awal stok & harga | Diisi sendiri oleh mitra lewat panel saat UAT | Produk | Diisi mitra |
+| K15 | Data awal stok & harga | Diisi sendiri oleh mitra lewat panel saat UAT | Produk | Harga dari klien: Rp32.000/kg (BR-H9). Stok diisi mitra. |
 
 ---
 
@@ -743,15 +814,16 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | 1. Fondasi | Membuat proyek, tooling, standar kode, pengujian dasar. | Proyek berjalan lokal, lint & test lulus. |
 | 2. Database & keamanan | Skema tabel, aturan hak akses (RLS), fungsi konfirmasi stok & harga, data awal (produk + 2 artikel placeholder), uji hak akses. | Uji database lulus (akses terlarang ditolak). |
 | 3. Halaman publik | Beranda, katalog, detail produk, profil, artikel, kontak, tombol WhatsApp, status loading/kosong/error. | AC-01–AC-16, AC-35, AC-36, AC-40 lulus. |
-| 4. Panel mitra | Login/logout, stok & harga, konfirmasi ulang, edit artikel. | AC-17–AC-34, AC-37–AC-39, AC-41 lulus. |
+| 4. Panel mitra | Login/logout, stok & harga, konfirmasi ulang, edit artikel, ganti nama usaha. | AC-17–AC-34, AC-37–AC-39, AC-41, AC-45–AC-50 lulus. |
 | 5. Pengujian menyeluruh | E2E, responsif, aksesibilitas, data terbaru di build produksi. | AC-42–AC-44 lulus. Laporan uji. |
 | 6. Deployment & UAT | Deploy ke domain bawaan Vercel (dengan `noindex`), uji bersama klien & mitra, pelatihan singkat mitra. | Klien menyetujui UAT. |
 | 7. Peluncuran | Mengganti seluruh placeholder, mengisi nomor WhatsApp, mengaktifkan indeks, domain khusus (opsional). | Daftar periksa peluncuran terpenuhi. |
 | 8. Pengembangan berikutnya | Item §6.1 sesuai prioritas klien. | — |
 
 **Daftar periksa peluncuran (ringkas) [Saran]:** semua `[[PLACEHOLDER]]` diganti atau disembunyikan,
-nomor WhatsApp terisi dan diuji, foto asli dengan hak pakai, akun mitra final dibuat dan mitra sudah
-mencoba sendiri, stok & harga sudah diisi mitra, `noindex` dimatikan, paket hosting/database sesuai
+nomor WhatsApp `6281575723540` terpasang di production dan diuji, nama usaha di pengaturan sudah sesuai
+keinginan klien, foto asli dengan hak pakai, akun mitra final dibuat dan mitra sudah mencoba sendiri, stok & harga
+(Rp32.000/kg atau harga terbaru) sudah diisi mitra, `noindex` dimatikan, paket hosting/database sesuai
 keputusan Q-10.
 
 ---
@@ -764,7 +836,8 @@ keputusan Q-10.
 | Panel mitra | Halaman khusus (setelah login) untuk mitra. |
 | Konfirmasi (stok & harga) | Aksi menyimpan stok & harga, termasuk menyimpan ulang angka yang sama, yang memperbarui waktu konfirmasi. |
 | Waktu konfirmasi / waktu pembaruan | Waktu terakhir aksi konfirmasi berhasil. Bukan jaminan kondisi stok saat ini. |
-| Placeholder | Penanda konten yang belum tersedia, mis. `[[PLACEHOLDER: Alamat]]`. |
+| Placeholder | Penanda konten yang belum tersedia, mis. `[[PLACEHOLDER: Jam operasional]]`. |
+| Pengaturan usaha | Satu baris data di database berisi nama usaha yang dapat diganti mitra dari panel. |
 | WIB | Waktu Indonesia Barat (UTC+7), zona Asia/Jakarta. |
 | UAT | *User Acceptance Testing*: pengujian penerimaan oleh klien. |
 | RLS | *Row Level Security*: aturan hak akses di level database. |
@@ -774,3 +847,5 @@ keputusan Q-10.
 | Versi | Tanggal | Perubahan |
 |---|---|---|
 | 0.1 | 17 November 2026 | Draf awal berdasarkan kebutuhan yang disepakati dan pemeriksaan referensi. |
+| 0.2 | 17 November 2026 | Menambahkan data usaha dari klien (§1.1): nama Juki Fish Farm (dapat diubah), lokasi + tautan peta, produk tunggal ikan nila Rp32.000/kg, layanan via chat WhatsApp `6281575723540`. Q-01 terjawab, Q-02/Q-09 sebagian terjawab, Q-21 ditambahkan. Sejarah/gambaran usaha dan foto masih menunggu. |
+| 0.3 | 17 November 2026 | Q-21 terjawab: mitra dapat mengganti nama usaha dari panel. Menambahkan US-27, alur §9.5, FR-31–FR-32, aturan BR-P1–BR-P7 (§12.7), AC-45–AC-50 (§13.7), A-20, R12–R13. Alamat (RT 05/RW 11) dan tautan peta dikonfirmasi klien. |
