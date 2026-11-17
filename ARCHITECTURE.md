@@ -2,9 +2,9 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.3 (draf untuk ditinjau). Menyesuaikan data usaha dari klien di PRD §1.1, dan nama usaha kini dapat diganti mitra dari panel (tabel `site_settings`, §8.7). |
-| Tanggal | 17 November 2026 |
-| Status | Usulan, menunggu persetujuan. **Belum ada kode, dependency, database, atau deployment yang dibuat.** |
+| Versi dokumen | 0.4 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
+| Tanggal | 18 November 2026 |
+| Status | Usulan, menunggu persetujuan. **Fondasi aplikasi sudah dibuat** (Next.js 16.4.6, fungsi domain murni, validasi konfigurasi, unit test; lihat §19). **Belum ada** migrasi database, koneksi ke database, akun mitra, atau deployment. |
 | Dokumen terkait | [`PRD.md`](./PRD.md): kebutuhan produk. ID `A-xx` (asumsi), `Q-xx` (pertanyaan), `AC-xx` (acceptance criteria), dan `BR-xx` (aturan bisnis) merujuk ke PRD. |
 
 Label status yang dipakai sama dengan PRD: **[Dikonfirmasi]**, **[Asumsi A-xx]**, **[Pertanyaan Q-xx]**, **[Saran]**.
@@ -21,16 +21,17 @@ bukan migrasi atau kode final.
 
 | Lapisan | Pilihan | Alasan |
 |---|---|---|
-| Framework (frontend + backend) | **Next.js 16.x (App Router) + TypeScript (strict)** | Satu basis kode untuk halaman publik, panel, dan logika server (Server Components & Server Actions). Halaman bisa dirender di server sehingga data stok terbaru tersaji tanpa API terpisah. Didukung native oleh Vercel. Versi dikunci saat scaffold. Per sumber sekunder, Next.js 16.4 (Oktober 2026) menjadikan *Cache Components* bawaan untuk aplikasi baru, dan dokumen ini dirancang untuk mode tersebut (§12). |
+| Framework (frontend + backend) | **Next.js 16.4.6 (App Router) + TypeScript 5.9 (strict)** | Satu basis kode untuk halaman publik, panel, dan logika server (Server Components & Server Actions). Halaman bisa dirender di server sehingga data stok terbaru tersaji tanpa API terpisah. Didukung native oleh Vercel. Versi dikunci persis di `package.json` + `package-lock.json` (16.4.6 = rilis stabil terbaru saat fondasi dibuat, 9 November 2026). *Cache Components* dan *Partial Prefetching* di-set **eksplisit** di `next.config.ts`. Default framework 16.4.6 adalah `cacheComponents: false`; yang mengaktifkannya untuk aplikasi baru adalah template `create-next-app`, bukan default framework (diverifikasi dari dokumentasi resmi dan kode sumber, §12.0). |
 | Runtime | **Node.js** (bawaan Vercel, Fluid Compute) | Edge runtime tidak diperlukan dan sudah tidak direkomendasikan. |
 | Database | **PostgreSQL via Supabase** (region Singapura, A-19) | Postgres mendukung `numeric` untuk stok desimal, `timestamptz` untuk waktu, `CHECK` constraint, fungsi, dan RLS. Data proyek ini sangat kecil (1 produk, 2 artikel). Dashboard Supabase berguna untuk administrasi darurat oleh pengembang. |
 | Autentikasi | **Supabase Auth** (email + password, A-08) via `@supabase/ssr` | Satu penyedia untuk database + autentikasi. JWT pengguna dipakai langsung oleh RLS sehingga hak akses ditegakkan di database. Registrasi publik bisa dimatikan. |
 | Otorisasi | **RLS + tabel allowlist satu baris + fungsi RPC** | Perlindungan di level database, bukan hanya di UI (§9). |
-| Styling | **Tailwind CSS v4** | Ringan, tanpa runtime CSS, mudah dirawat untuk proyek kecil. Komponen UI dibuat sendiri dalam jumlah kecil. Pustaka komponen (mis. shadcn/ui) opsional, hanya bila mempercepat pembuatan form. |
-| Validasi | **Zod** | Satu skema validasi di server untuk stok, harga, dan artikel. |
+| Styling | **Tailwind CSS v4** (4.3.3, lewat loader `@tailwindcss/turbopack` sesuai template resmi 16.4.6) | Ringan, tanpa runtime CSS, mudah dirawat untuk proyek kecil. Komponen UI dibuat sendiri dalam jumlah kecil. Pustaka komponen (mis. shadcn/ui) opsional, hanya bila mempercepat pembuatan form. |
+| Validasi | **Zod 4** + parser angka murni | Parser stok/harga format Indonesia ditulis sebagai fungsi murni (§10.2). Zod dipakai untuk validasi konfigurasi lingkungan dan skema form di Server Action. |
 | Render artikel | **react-markdown** tanpa HTML mentah | Format dasar yang aman. HTML/skrip dari input tidak dijalankan (AC-40). |
 | Gambar | **File statis di repo + `next/image`** | Cukup untuk MVP karena mitra tidak mengunggah foto (A-12). Supabase Storage baru dibutuhkan bila mitra perlu mengunggah foto (§14). |
-| Pengujian | **Vitest** (unit), **pgTAP via `supabase test db`** (RLS/fungsi DB), **Playwright** (E2E, HP & desktop), **axe-core** (aksesibilitas) | Menguji aturan bisnis di setiap lapisan (§17). |
+| Pengujian | **Vitest 5** (unit), **pgTAP via `supabase test db`** (RLS/fungsi DB), **Playwright** (E2E, HP & desktop), **axe-core** (aksesibilitas) | Menguji aturan bisnis di setiap lapisan (§17). |
+| Package manager | **npm** (`package-lock.json`) | Perintah di dokumen ini memakai `npm run …`. Jangan mencampur dengan lockfile lain. |
 | Tooling DB | **Supabase CLI** + migrasi SQL di repo | Skema dapat direproduksi dan ditinjau lewat Git. |
 | Hosting aplikasi | **Vercel** **[Dikonfirmasi]** | Target deployment yang disepakati. |
 
@@ -128,7 +129,7 @@ referensi monitoring stok. Hanya pola-pola terkait yang bisa dipelajari:
 | `User::canAccessPanel()` selalu `true`, dan kolom `role` default `'admin'` tanpa dipakai untuk otorisasi | Setiap akun di tabel `users` otomatis punya akses admin penuh | Allowlist eksplisit satu akun + RLS di database (§9). |
 | Seeder membuat admin dengan password bawaan yang diketahui umum dan dicantumkan di README | Kredensial lemah/diketahui | Tidak ada kredensial di seed/repo. Akun dibuat manual (§9.6). |
 | Nomor WhatsApp admin memiliki **nilai cadangan yang ditanam di kode/konfigurasi** bila env kosong | Pengunjung diarahkan ke nomor yang bukan milik usaha | Tanpa cadangan. Bila nomor tidak ada, tombol dinonaktifkan (§13). |
-| Input harga di Filament `numeric()` tanpa batas minimum | Nilai negatif bisa tersimpan | Validasi server + `CHECK (>= 0)` di DB. |
+| Input harga di Filament `numeric()` tanpa batas minimum | Nilai negatif bisa tersimpan | Validasi server + `CHECK (... BETWEEN 0 AND batas wajar)` di DB + pemeriksaan di RPC dengan batas yang sama (§10.5). |
 | `config/app.php` memakai zona waktu `UTC`, sementara laporan mencetak `now()` dengan label "WIB" tanpa konversi yang terlihat | Jam yang diberi label WIB kemungkinan sebenarnya UTC (selisih 7 jam) | Konversi eksplisit ke `Asia/Jakarta` saat menampilkan waktu (§11). |
 | Efek samping lewat *model events* (pembayaran otomatis tersinkron saat harga berubah) | Perubahan tersembunyi sulit dilacak | Aksi eksplisit (fungsi `confirm_product_stock_price`). |
 
@@ -293,13 +294,22 @@ sequenceDiagram
         SA-->>UI: Pesan sesi berakhir atau pesan per kolom, isian tetap
     else valid
         SA->>DB: rpc confirm_product_stock_price dengan JWT mitra
-        DB->>DB: Cek is_partner_admin, cek nilai, UPDATE stok, harga, confirmed_at = now()
-        alt ditolak atau gagal
-            DB-->>SA: error, tidak ada perubahan data
+        DB->>DB: Cek is_partner_admin, cek nilai dan batas, UPDATE stok, harga, confirmed_at = now()
+        alt pasti ditolak (respons error berkode dari database)
+            DB-->>SA: error berkode, transaksi dibatalkan
             SA-->>UI: Gagal menyimpan, data sebelumnya tidak berubah
         else berhasil
             DB-->>SA: baris tersimpan termasuk confirmed_at baru
             SA-->>UI: Berhasil, tampilkan angka tersimpan dan waktu WIB
+        else belum pasti (timeout, koneksi terputus, respons tidak lengkap)
+            SA->>DB: Baca ulang baris produk dengan JWT mitra
+            alt confirmed_at lebih baru dan angka sama dengan isian
+                SA-->>UI: Berhasil (diverifikasi ulang), tampilkan nilai hasil baca
+            else confirmed_at sama dengan sebelum menyimpan
+                SA-->>UI: Saat diperiksa data belum berubah, boleh simpan lagi
+            else pembacaan ulang gagal
+                SA-->>UI: Status belum dapat dipastikan, muat ulang untuk memeriksa
+            end
         end
     end
 ```
@@ -308,6 +318,12 @@ sequenceDiagram
   dan fungsi tetap mengisi `stock_price_confirmed_at = now()` (AC-31). Server Action membandingkan nilai
   lama dan baru hanya untuk memilih teks pesan ("Data dikonfirmasi ulang…" vs "Data diperbarui…").
 - Seluruh perubahan terjadi dalam **satu perintah UPDATE** di dalam fungsi, jadi bersifat atomik (NFR-20).
+- **Atomik tidak sama dengan pasti diketahui.** Bila jawaban tidak sampai (timeout, koneksi terputus),
+  transaksi mungkin sudah *commit* atau belum. Hasil seperti ini **tidak** boleh dilaporkan sebagai
+  "data sebelumnya tidak berubah". Klasifikasi hasil dan prosedur baca ulang ada di §10.4.
+- Ketidakpastian juga bisa terjadi di antara **browser mitra dan Server Action** (sinyal HP putus setelah
+  form terkirim). Form di browser memperlakukan kegagalan jaringan saat memanggil Server Action sebagai
+  hasil belum pasti dan memicu pembacaan ulang yang sama (§10.4).
 
 ### 5.4 Perubahan artikel
 
@@ -335,7 +351,10 @@ sequenceDiagram
 ```
 
 Catatan implementasi: UPDATE yang ditolak RLS di PostgREST **tidak** menghasilkan error. Hasilnya 0
-baris. Server Action **wajib** memeriksa jumlah baris yang kembali dan memperlakukan 0 baris sebagai gagal.
+baris. Server Action **wajib** memeriksa jumlah baris yang kembali dan memperlakukan 0 baris sebagai gagal
+yang **pasti** (UPDATE sudah berjalan dan tidak mengubah apa pun). Timeout atau koneksi terputus
+diperlakukan sebagai hasil **belum pasti** dan dibaca ulang dengan `updated_at` artikel sebagai pembanding
+(§10.4).
 
 ### 5.5 Tombol pesan WhatsApp
 
@@ -384,7 +403,10 @@ sequenceDiagram
 ```
 
 Sama seperti artikel, UPDATE yang ditolak RLS menghasilkan 0 baris, bukan error. Hasil 0 baris wajib
-diperlakukan sebagai gagal. Cache **hanya** dibersihkan setelah penyimpanan berhasil.
+diperlakukan sebagai gagal yang pasti. Cache dibersihkan setelah penyimpanan berhasil. Untuk hasil
+**belum pasti**, pemeriksaan ulang dilakukan lewat Server Action terpisah yang membaca nama tersimpan dan
+**selalu** memanggil `updateTag('site-settings')`, karena membersihkan cache tidak berbahaya, sedangkan
+melewatkannya setelah *commit* yang tidak terlaporkan membuat nama lama tetap tampil (§10.4).
 
 ---
 
@@ -419,30 +441,35 @@ diperlakukan sebagai gagal. Cache **hanya** dibersihkan setelah penyimpanan berh
 PasarNila/
 ├── PRD.md
 ├── ARCHITECTURE.md
-├── README.md                         # (fase implementasi) cara setup & menjalankan
-├── .env.example                      # daftar env var tanpa nilai rahasia
-├── .gitignore                        # wajib mengabaikan .env*.local
-├── next.config.ts                    # cacheComponents, security headers
+├── README.md                         # cara setup & menjalankan
+├── AGENTS.md                         # dari template create-next-app: arahkan agen ke docs Next.js terbundel
+├── .env.example                      # daftar env var + placeholder, tanpa nilai asli
+├── .gitignore                        # mengabaikan .env* kecuali .env.example
+├── next.config.ts                    # cacheComponents + partialPrefetching eksplisit, security headers
 ├── vercel.ts                         # opsional: region function (mis. sin1)
-├── package.json
-├── tsconfig.json
+├── package.json / package-lock.json  # npm, versi dikunci
+├── tsconfig.json                     # strict + noUncheckedIndexedAccess
 ├── eslint.config.mjs
-├── vitest.config.ts
-├── playwright.config.ts
+├── vitest.config.mts                 # .mts agar dimuat sebagai ESM (paket ini CommonJS)
+├── playwright.config.ts              # (fase pengujian E2E)
+├── scripts/
+│   └── check-env.ts                  # `npm run check:env`: laporkan NAMA & status env, tanpa nilai
 ├── public/
 │   └── images/
 │       ├── placeholders/             # SVG netral "Foto belum tersedia"
 │       └── products/                 # foto asli dari klien (menyusul)
 ├── supabase/
 │   ├── config.toml                   # pengaturan lokal; enable_signup = false
-│   ├── migrations/
-│   │   ├── <ts>_schema.sql           # tabel, constraint, trigger updated_at
-│   │   ├── <ts>_security.sql         # schema private, allowlist, RLS, grants
-│   │   ├── <ts>_functions.sql        # confirm_product_stock_price, current_user_is_partner
-│   │   └── <ts>_initial_content.sql  # produk "Ikan Nila" + 2 artikel placeholder
-│   │                                 # + 1 baris site_settings "Juki Fish Farm" (idempoten)
+│   ├── migrations/                   # urutan timestamp = urutan ketergantungan (§8.8)
+│   │   ├── <ts1>_schemas_and_helpers.sql  # schema private + fungsi trigger updated_at
+│   │   ├── <ts2>_tables.sql               # 4 tabel, constraint (termasuk batas wajar), trigger, RLS aktif
+│   │   ├── <ts3>_access_functions.sql     # private.is_partner_admin, public.current_user_is_partner + hak EXECUTE
+│   │   ├── <ts4>_policies_and_grants.sql  # revoke/grant tabel & kolom, policy RLS (memakai fungsi <ts3>)
+│   │   ├── <ts5>_rpc_functions.sql        # confirm_product_stock_price + hak EXECUTE
+│   │   └── <ts6>_initial_content.sql      # produk "Ikan Nila", 2 artikel placeholder,
+│   │                                      # 1 baris site_settings "Juki Fish Farm" (idempoten)
 │   ├── seed.sql                      # data uji lokal saja; TANPA akun/password
-│   └── tests/                        # pgTAP: RLS, grants, fungsi
+│   └── tests/                        # pgTAP: RLS, grants, hak EXECUTE fungsi, batas, RPC
 ├── src/
 │   ├── proxy.ts                      # refresh sesi Supabase; matcher hanya /mitra/:path*
 │   ├── app/
@@ -479,7 +506,7 @@ PasarNila/
 │   │   ├── site.ts                   # info usaha selain nama; null = belum tersedia
 │   │   └── whatsapp-messages.ts      # templat pesan terisi
 │   ├── lib/
-│   │   ├── env.ts                    # membaca & memvalidasi env var
+│   │   ├── env.ts                    # membaca & memvalidasi env var (pesan error hanya menyebut nama)
 │   │   ├── supabase/
 │   │   │   ├── public-client.ts      # klien tanpa cookie untuk baca publik
 │   │   │   ├── server-client.ts      # klien ber-cookie untuk panel & Server Actions
@@ -492,10 +519,11 @@ PasarNila/
 │   │   ├── actions/stock-price.ts    # saveStockPrice
 │   │   ├── actions/articles.ts       # updateArticle
 │   │   ├── actions/site-settings.ts  # updateBusinessName + updateTag('site-settings')
-│   │   ├── domain/product-status.ts  # aturan Belum tersedia / Stok habis / angka
-│   │   ├── validation/               # skema Zod + parser angka format Indonesia
+│   │   ├── domain/limits.ts          # batas wajar stok/harga; HARUS sama dengan constraint DB (§10.5)
+│   │   ├── domain/product-status.ts  # aturan Belum tersedia / Stok habis / angka / gagal dimuat
+│   │   ├── validation/               # parser angka format Indonesia (+ skema Zod form)
 │   │   ├── format/                   # datetime (WIB), rupiah, kg
-│   │   └── whatsapp.ts               # normalisasi nomor & pembuat tautan
+│   │   └── whatsapp.ts               # normalisasi nomor, pembuat tautan, pesan terisi
 │   └── types/database.ts             # hasil `supabase gen types typescript`
 └── tests/
     ├── unit/                         # Vitest
@@ -505,6 +533,12 @@ PasarNila/
 Prinsip: **aturan bisnis** (status stok, format WIB, parser angka, tautan WhatsApp) ditulis sebagai fungsi
 murni di `src/lib/domain`, `src/lib/format`, `src/lib/validation`, dan `src/lib/whatsapp.ts` agar mudah diuji
 unit tanpa database.
+
+**Status per 18 November 2026:** sudah ada `package.json`/lockfile, konfigurasi (`next.config.ts`,
+`tsconfig.json`, ESLint, `vitest.config.mts`), `.env.example`, `scripts/check-env.ts`, `src/app/layout.tsx` +
+halaman sementara, `src/config/site.ts`, `src/config/whatsapp-messages.ts`, `src/lib/env.ts`,
+`src/lib/domain/*`, `src/lib/validation/*`, `src/lib/format/*`, `src/lib/whatsapp.ts`, dan
+`tests/unit/*`. Folder `supabase/`, klien Supabase, `proxy.ts`, halaman publik, dan panel **belum** dibuat.
 
 ---
 
@@ -569,8 +603,8 @@ erDiagram
 | `short_description` | `text` | Tidak | `NULL` | Deskripsi singkat. NULL → placeholder "[Deskripsi produk belum tersedia]". |
 | `image_path` | `text` | Tidak | `NULL` | Path gambar statis di `/public/images/products/…`. NULL → gambar placeholder. |
 | `image_alt` | `text` | Tidak | `NULL` | Teks alternatif gambar. |
-| `stock_kg` | `numeric(10,2)` | Tidak | `NULL` = **belum pernah diisi** | Stok dalam kg. `CHECK (stock_kg >= 0)`. `0` = "Stok habis". Presisi 2 desimal (A-03, dapat disesuaikan). Rentang hingga 99.999.999,99, jauh di atas batas wajar aplikasi (A-07). |
-| `price_per_kg_idr` | `integer` | Tidak | `NULL` = **belum pernah diisi** | Harga rupiah bulat per kg (A-02). `CHECK (price_per_kg_idr >= 0)`. Batas `integer` (± 2,1 miliar) jauh di atas kebutuhan. |
+| `stock_kg` | `numeric(10,2)` | Tidak | `NULL` = **belum pernah diisi** | Stok dalam kg. `CHECK (stock_kg BETWEEN 0 AND 100000)`, batas yang sama dengan validasi server (A-07, §10.5). `0` = "Stok habis". Presisi 2 desimal (A-03, dapat disesuaikan). Kapasitas tipe (hingga 99.999.999,99) sengaja lebih besar dari batas agar mengubah A-07 cukup dengan mengganti constraint. |
+| `price_per_kg_idr` | `integer` | Tidak | `NULL` = **belum pernah diisi** | Harga rupiah bulat per kg (A-02). `CHECK (price_per_kg_idr BETWEEN 0 AND 10000000)`, batas yang sama dengan validasi server (A-07, §10.5). |
 | `stock_price_confirmed_at` | `timestamptz` | Tidak | `NULL` = **belum pernah dikonfirmasi** | Waktu terakhir stok & harga disimpan/dikonfirmasi. **Hanya** diisi oleh fungsi `confirm_product_stock_price` dengan `now()` (§11). |
 | `is_published` | `boolean` | Ya | `false` (data awal: `true`) | Tampil di publik atau tidak. Dikelola pengembang. |
 | `sort_order` | `integer` | Ya | `0` | Urutan tampil bila produk > 1. |
@@ -587,6 +621,10 @@ Constraint tambahan:
 `float`/`real`), sehingga `12,5` tersimpan persis `12.50`. **Perhatian:** Postgres membulatkan diam-diam
 nilai berpresisi lebih tinggi ke skala kolom (mis. `1.255` → `1.26`). Karena itu validasi aplikasi **dan**
 fungsi RPC wajib **menolak** input lebih dari 2 desimal, bukan membiarkannya dibulatkan (§10).
+Tipe `numeric` juga menerima nilai khusus `NaN` (dan `Infinity` di Postgres 14+). Di Postgres, `NaN`
+dianggap lebih besar dari semua angka, sehingga `CHECK (stock_kg >= 0)` saja **tidak** menolaknya.
+Constraint `BETWEEN` dengan batas atas menutup celah ini; fungsi RPC tetap memeriksa batas secara
+eksplisit agar pesan errornya jelas (§9.5).
 
 ### 8.3 Tabel `public.articles`
 
@@ -665,6 +703,49 @@ Logika waktu konfirmasi, RLS, dan tampilan status tidak berubah pada kedua opsi.
 - Tidak ada policy `INSERT`/`DELETE`, jadi baris tunggal ini tidak bisa ditambah atau dihapus dari aplikasi
   (PRD AC-48).
 
+### 8.8 Urutan migrasi berdasarkan ketergantungan
+
+Migrasi dijalankan berurutan menurut timestamp nama file. Setiap objek harus sudah ada sebelum objek lain
+merujuknya. Aturan Postgres yang menentukan urutan:
+
+- **Fungsi `language sql`** divalidasi saat dibuat (`check_function_bodies` aktif secara bawaan), termasuk
+  tabel yang dirujuk. Jadi `private.is_partner_admin()` baru bisa dibuat **setelah** tabel
+  `private.partner_admins` ada.
+- **Ekspresi policy RLS** di-*resolve* saat `CREATE POLICY`. Policy yang memanggil fungsi pemeriksa akses
+  hanya bisa dibuat **setelah** fungsi itu ada.
+- **Fungsi `plpgsql`** tidak memvalidasi isi query saat dibuat, tetapi tipe parameter dan tipe kembaliannya
+  (`public.products`) harus sudah ada.
+- **Trigger** membutuhkan fungsi triggernya sudah ada.
+
+| # | File | Isi | Bergantung pada |
+|---|---|---|---|
+| 1 | `<ts1>_schemas_and_helpers.sql` | `create schema private` + `revoke all on schema private from public`. Fungsi trigger `private.set_updated_at()` + `revoke execute … from public`. | — |
+| 2 | `<ts2>_tables.sql` | `public.products`, `public.articles`, `public.site_settings`, `private.partner_admins` beserta constraint (termasuk batas wajar §10.5 dan integritas waktu), trigger `updated_at`, dan `enable row level security` **di file yang sama** sehingga tidak ada tabel tanpa RLS. | #1 (schema `private`, fungsi trigger) |
+| 3 | `<ts3>_access_functions.sql` | `private.is_partner_admin()` lalu `public.current_user_is_partner()`, keduanya `security definer` + `set search_path = ''`, beserta pengaturan hak EXECUTE (tabel di bawah). | #2 (`private.partner_admins`) |
+| 4 | `<ts4>_policies_and_grants.sql` | Pencabutan hak tulis tabel, `grant select`, column grant (`articles.title/body`, `site_settings.business_name`), dan semua policy RLS. | #2 (tabel), #3 (fungsi pemeriksa) |
+| 5 | `<ts5>_rpc_functions.sql` | `public.confirm_product_stock_price(...)` beserta hak EXECUTE. | #2 (`products`), #3 (`private.is_partner_admin`) |
+| 6 | `<ts6>_initial_content.sql` | Produk, 2 artikel placeholder, 1 baris `site_settings` (idempoten, `on conflict do nothing`). Dijalankan sebagai pemilik migrasi sehingga tidak terhalang RLS. | #2 (dan sengaja setelah #4 agar data masuk ke skema yang sudah terkunci) |
+
+**Hak EXECUTE fungsi.** Postgres secara bawaan memberi `EXECUTE` setiap fungsi baru kepada `PUBLIC`. Di
+schema `public`, Supabase juga memberi hak bawaan kepada role `anon` dan `authenticated` (perilaku ini dicek
+ulang saat implementasi dengan `has_function_privilege` di pgTAP). Karena itu setiap fungsi **langsung**
+diikuti `revoke execute … from public, anon, authenticated`, lalu `grant execute` hanya kepada role yang
+memang memerlukannya:
+
+| Fungsi | Schema | Jenis | EXECUTE untuk | Alasan |
+|---|---|---|---|---|
+| `set_updated_at()` | `private` | trigger | Tidak ada role API | Hanya dipanggil trigger. Hak EXECUTE fungsi trigger diperiksa saat `CREATE TRIGGER` (oleh pemilik migrasi), bukan saat trigger berjalan. Dibuktikan oleh uji pgTAP: mitra dapat mengubah artikel walau tidak punya EXECUTE pada fungsi ini. |
+| `is_partner_admin()` | `private` | `security definer` | Tidak ada role API | Hanya dipanggil dari fungsi `security definer` lain (berjalan sebagai pemilik). Role API juga tidak diberi `USAGE` pada schema `private`. |
+| `current_user_is_partner()` | `public` | `security definer` | `authenticated` | Dipakai aplikasi saat login (§5.2) **dan** di semua policy RLS khusus mitra. Hanya menjawab tentang pemanggil sendiri. `anon` tidak memerlukannya karena policy yang memanggilnya hanya berlaku `to authenticated`. |
+| `confirm_product_stock_price(...)` | `public` | `security definer` | `authenticated` | Satu-satunya jalur ubah stok/harga. Fungsi menolak akun yang bukan mitra (`42501`). |
+
+Catatan: *Security Advisor* Supabase dapat menandai fungsi `security definer` yang bisa dieksekusi
+`authenticated` di schema yang diekspos. Untuk dua fungsi di atas hal itu disengaja, dan keduanya memeriksa
+identitas pemanggil di dalam fungsi.
+
+**Verifikasi urutan:** migrasi diterapkan dari nol ke database **lokal** (Supabase CLI + Docker), lalu uji
+pgTAP dijalankan. Proyek remote baru disentuh setelah uji lokal lulus (§16.2).
+
 ---
 
 ## 9. Rancangan hak akses
@@ -709,9 +790,7 @@ pengembang, **bukan** melalui aplikasi.
 - Fungsi pemeriksa (sketsa):
 
 ```sql
--- SKETSA KONSEPTUAL
-create schema if not exists private;
-
+-- SKETSA KONSEPTUAL — migrasi #3 (§8.8). Schema private dibuat di #1, tabel partner_admins di #2.
 create or replace function private.is_partner_admin()
 returns boolean
 language sql stable security definer set search_path = ''
@@ -721,61 +800,71 @@ as $$
     where user_id = (select auth.uid())
   );
 $$;
+revoke execute on function private.is_partner_admin() from public, anon, authenticated;
 
--- Wrapper publik agar aplikasi bisa bertanya "apakah SAYA mitra?" (hanya tentang pemanggil)
+-- Wrapper publik: aplikasi bertanya "apakah SAYA mitra?" (hanya tentang pemanggil),
+-- dan dipakai oleh policy RLS khusus mitra (§9.4).
 create or replace function public.current_user_is_partner()
 returns boolean
 language sql stable security definer set search_path = ''
 as $$ select private.is_partner_admin(); $$;
+revoke execute on function public.current_user_is_partner() from public, anon, authenticated;
+grant execute on function public.current_user_is_partner() to authenticated;
 ```
 
-- Hak eksekusi: `revoke execute ... from public, anon`, lalu `grant execute ... to authenticated`.
-  Postgres secara bawaan memberi `EXECUTE` fungsi baru kepada `PUBLIC`, sehingga pencabutan ini wajib.
+- Policy RLS memanggil **`public.current_user_is_partner()`**, bukan `private.is_partner_admin()` secara
+  langsung. Ekspresi policy dievaluasi dengan hak pemanggil (role `authenticated`), sehingga bila policy
+  memanggil fungsi `private`, role itu harus diberi `USAGE` pada schema `private` **dan** `EXECUTE` pada
+  fungsinya. Dengan wrapper, fungsi `private` tidak memerlukan hak apa pun untuk role API (tabel hak
+  EXECUTE di §8.8).
+- Postgres secara bawaan memberi `EXECUTE` fungsi baru kepada `PUBLIC`, dan Supabase memberi hak bawaan
+  kepada `anon`/`authenticated` di schema `public`, sehingga pencabutan eksplisit di atas wajib.
 
 ### 9.4 Kebijakan RLS dan grants (konseptual)
 
 ```sql
 -- SKETSA KONSEPTUAL
-alter table public.products enable row level security;
-alter table public.articles enable row level security;
-alter table private.partner_admins enable row level security;  -- tanpa policy = tertutup
+-- Migrasi #2 (§8.8): RLS diaktifkan di file yang sama dengan pembuatan tabel.
+--   alter table public.products        enable row level security;
+--   alter table public.articles        enable row level security;
+--   alter table public.site_settings   enable row level security;
+--   alter table private.partner_admins enable row level security;  -- tanpa policy = tertutup
 
--- Cabut hak tulis langsung (deny by default)
-revoke insert, update, delete, truncate on public.products from anon, authenticated;
-revoke insert, update, delete, truncate on public.articles from anon, authenticated;
--- Mitra hanya boleh mengubah DUA kolom artikel
+-- Migrasi #4: dijalankan SETELAH fungsi pemeriksa akses (#3) ada.
+-- Cabut hak tulis langsung (deny by default), sisakan baca.
+revoke all on public.products, public.articles, public.site_settings from anon, authenticated;
+grant select on public.products, public.articles, public.site_settings to anon, authenticated;
+-- Mitra hanya boleh mengubah DUA kolom artikel dan SATU kolom pengaturan
 grant update (title, body) on public.articles to authenticated;
+grant update (business_name) on public.site_settings to authenticated;
 
 -- Produk
 create policy "publik baca produk terbit" on public.products
   for select to anon, authenticated using (is_published);
 create policy "mitra baca semua produk" on public.products
-  for select to authenticated using ((select private.is_partner_admin()));
+  for select to authenticated using ((select public.current_user_is_partner()));
 -- Tidak ada policy INSERT/UPDATE/DELETE: stok & harga HANYA lewat fungsi RPC.
 
 -- Artikel
 create policy "publik baca artikel terbit" on public.articles
   for select to anon, authenticated using (is_published);
 create policy "mitra baca semua artikel" on public.articles
-  for select to authenticated using ((select private.is_partner_admin()));
+  for select to authenticated using ((select public.current_user_is_partner()));
 create policy "mitra ubah artikel" on public.articles
   for update to authenticated
-  using ((select private.is_partner_admin()))
-  with check ((select private.is_partner_admin()));
+  using ((select public.current_user_is_partner()))
+  with check ((select public.current_user_is_partner()));
 -- Tidak ada policy INSERT/DELETE: tambah/hapus artikel ditolak (AC-39).
 
 -- Pengaturan usaha (nama)
-alter table public.site_settings enable row level security;
-revoke insert, update, delete, truncate on public.site_settings from anon, authenticated;
-grant update (business_name) on public.site_settings to authenticated;  -- hanya satu kolom
-
 create policy "publik baca pengaturan" on public.site_settings
   for select to anon, authenticated using (true);
 create policy "mitra ubah nama usaha" on public.site_settings
   for update to authenticated
-  using ((select private.is_partner_admin()))
-  with check ((select private.is_partner_admin()));
+  using ((select public.current_user_is_partner()))
+  with check ((select public.current_user_is_partner()));
 -- Tidak ada policy INSERT/DELETE: baris tunggal tidak bisa ditambah/dihapus (AC-48).
+-- private.partner_admins: tanpa grant dan tanpa policy untuk role API.
 ```
 
 Peran RLS secara konseptual: setiap query via Data API berjalan sebagai role `anon` (tanpa login) atau
@@ -785,11 +874,11 @@ policy untuk suatu operasi, operasi itu ditolak.
 ### 9.5 Fungsi konfirmasi stok & harga (inti aturan waktu)
 
 ```sql
--- SKETSA KONSEPTUAL
+-- SKETSA KONSEPTUAL — migrasi #5 (§8.8)
 create or replace function public.confirm_product_stock_price(
   p_product_id uuid,
   p_stock_kg numeric,
-  p_price_per_kg_idr integer
+  p_price_per_kg_idr numeric   -- numeric, bukan integer: pecahan harus DITOLAK, bukan dibulatkan saat cast
 ) returns public.products
 language plpgsql security definer set search_path = ''
 as $$
@@ -799,24 +888,44 @@ begin
     raise exception 'forbidden' using errcode = '42501';
   end if;
   if p_stock_kg is null or p_price_per_kg_idr is null then
-    raise exception 'stok dan harga wajib diisi' using errcode = '22023';
+    raise exception 'stock_price_required' using errcode = '22023';
+  end if;
+  -- Batas SAMA dengan src/lib/domain/limits.ts dan constraint tabel (§10.5).
+  -- Perbandingan rentang juga menolak NaN/Infinity (NaN dianggap lebih besar dari semua angka).
+  if p_stock_kg < 0 or p_stock_kg > 100000 then
+    raise exception 'stock_out_of_range' using errcode = '22023';
   end if;
   if p_stock_kg <> round(p_stock_kg, 2) then          -- tolak > 2 desimal, jangan dibulatkan
-    raise exception 'stok maksimal 2 desimal' using errcode = '22023';
+    raise exception 'stock_too_many_decimals' using errcode = '22023';
+  end if;
+  if p_price_per_kg_idr < 0 or p_price_per_kg_idr > 10000000 then
+    raise exception 'price_out_of_range' using errcode = '22023';
+  end if;
+  if p_price_per_kg_idr <> trunc(p_price_per_kg_idr) then   -- tolak pecahan, jangan dibulatkan
+    raise exception 'price_not_whole' using errcode = '22023';
   end if;
   update public.products
      set stock_kg = p_stock_kg,
-         price_per_kg_idr = p_price_per_kg_idr,
-         stock_price_confirmed_at = now()             -- jam database, bukan jam perangkat
+         price_per_kg_idr = p_price_per_kg_idr::integer,  -- aman: sudah dipastikan bulat & dalam batas
+         stock_price_confirmed_at = now()                 -- jam database, bukan jam perangkat
    where id = p_product_id
-  returning * into v_row;                             -- CHECK >= 0 tetap berlaku
+  returning * into v_row;                                 -- constraint BETWEEN tetap berlaku sebagai jaring kedua
   if not found then
-    raise exception 'produk tidak ditemukan' using errcode = 'P0002';
+    raise exception 'product_not_found' using errcode = 'P0002';
   end if;
   return v_row;
 end;
 $$;
+revoke execute on function public.confirm_product_stock_price(uuid, numeric, numeric)
+  from public, anon, authenticated;
+grant execute on function public.confirm_product_stock_price(uuid, numeric, numeric) to authenticated;
 ```
+
+- Pesan exception berupa **kunci** (`stock_out_of_range`, `price_not_whole`, …), bukan kalimat. Server
+  Action memetakan kunci itu ke pesan bahasa Indonesia per kolom (§10.3), sehingga teks untuk mitra hanya
+  ada di satu tempat.
+- Aplikasi mengirim stok sebagai string kanonik (mis. `"12.5"`) dan harga sebagai bilangan bulat hasil
+  parser (§10.2). Pemeriksaan di fungsi tetap wajib karena fungsi dapat dipanggil langsung lewat Data API.
 
 Karena hak `UPDATE` langsung pada `products` dicabut, **satu-satunya** cara mengubah stok, harga, atau waktu
 konfirmasi dari aplikasi adalah lewat fungsi ini. Itu yang menjamin waktu konfirmasi tidak berubah oleh
@@ -884,22 +993,38 @@ mengubah data karena tidak ada di allowlist (AC-20).
 
 ### 10.2 Aturan parsing & validasi
 
+Prinsip parser: **periksa format dulu, baru normalisasi.** Karakter tidak pernah dibuang sebelum polanya
+dipastikan sah, sehingga salah ketik tidak berubah diam-diam menjadi angka lain. Implementasi:
+`src/lib/validation/stock-price-input.ts`, diuji di `tests/unit/stock-price-input.test.ts`.
+
 **Stok (kg)** (BR-S2, BR-S3, BR-S9, BR-S10)
 
-1. Trim spasi, hapus akhiran "kg" bila ada.
-2. Harus cocok pola `^\d{1,8}([.,]\d{1,2})?$`, yaitu satu pemisah desimal (koma **atau** titik) dan maksimal 2 desimal.
-3. Ditolak: kosong, negatif, huruf, notasi ilmiah (`1e3`), lebih dari satu pemisah (`1.250,5`), lebih dari 2 desimal.
-4. Batas wajar 0 – 100.000 kg (A-07, konstanta konfigurasi).
-5. Dikirim ke RPC sebagai **string kanonik** (mis. `"12.5"`), bukan hasil `parseFloat`, agar tidak ada galat
+1. Trim spasi. Kosong → "Stok wajib diisi."
+2. Hapus akhiran `kg` (tanpa membedakan huruf besar/kecil) bila ada.
+3. Diawali `-` → "Stok tidak boleh negatif."
+4. Lebih dari satu pemisah (`1.250,5`, `1.000.000`) → ditolak (pemisah ribuan tidak diterima).
+5. Harus cocok pola `^(0|[1-9]\d*)([.,]\d+)?$`: satu pemisah desimal (koma **atau** titik), tanpa nol di
+   depan. Ditolak: huruf, notasi ilmiah (`1e3`), `.5`, `12.`, `012`.
+6. Lebih dari 2 angka di belakang pemisah (`1,255`, `1.250`) → ditolak dengan pesan yang menyebut batas 2
+   desimal **dan** larangan titik ribuan, karena `1.250` bisa berarti 1,25 maupun 1250.
+7. Batas wajar 0 – 100.000 kg (A-07, `src/lib/domain/limits.ts`, §10.5).
+8. Dikirim ke RPC sebagai **string kanonik** (mis. `"12.5"`), bukan hasil `parseFloat`, agar tidak ada galat
    biner. Postgres meng-*cast* ke `numeric`.
 
 **Harga (Rp/kg)** (BR-H2, BR-H3, BR-H7, BR-H8)
 
-1. Trim, hapus awalan "Rp", spasi, dan titik pemisah ribuan.
-2. Harus angka bulat `^\d{1,9}$`. Input yang mengandung koma/desimal ditolak dengan pesan "Harga harus dalam
-   rupiah bulat".
-3. Batas wajar 0 – 10.000.000 (A-07).
-4. Nilai `0` → UI meminta konfirmasi tambahan sebelum mengirim (AC-34).
+1. Trim spasi. Kosong → "Harga wajib diisi."
+2. Hapus awalan `Rp` atau `Rp.` (tanpa membedakan huruf besar/kecil) beserta spasi sesudahnya.
+3. Diawali `-` → "Harga tidak boleh negatif."
+4. Mengandung koma (`35000,5`, `35.000,50`) → "Harga harus dalam rupiah bulat."
+5. **Validasi format sebelum titik dihapus.** Hanya dua bentuk yang sah:
+   - angka polos `^(0|[1-9]\d*)$` (mis. `35000`, `0`);
+   - kelompok ribuan `^[1-9]\d{0,2}(\.\d{3})+$` (mis. `35.000`, `1.250.000`).
+   Input bertitik yang tidak cocok pola ribuan (`35.50`, `3.5`, `35.0000`, `0.500`) **ditolak** dengan pesan
+   bahwa titik hanya untuk pemisah ribuan. Tanpa langkah ini, `35.50` akan menjadi `3550`.
+6. Baru setelah lolos langkah 5, titik dihapus.
+7. Batas wajar 0 – 10.000.000 (A-07, §10.5).
+8. Nilai `0` → UI meminta konfirmasi tambahan sebelum mengirim (AC-34).
 
 **Artikel** (BR-A6): judul dan isi di-trim, judul 1–150 karakter, isi 1–20.000 karakter. HTML tidak diizinkan
 dirender. Teks disimpan apa adanya dan dirender dengan `react-markdown` tanpa `rehype-raw`.
@@ -915,12 +1040,17 @@ database (§8.7).
 
 | Kondisi | Deteksi | Pesan (Bahasa Indonesia) | Data |
 |---|---|---|---|
-| Input tidak valid | Zod gagal / Postgres `22023`, `23514` | Pesan spesifik per kolom, mis. "Stok maksimal 2 angka di belakang koma." | Tidak berubah |
-| Sesi tidak ada/kedaluwarsa | `getClaims()` kosong / Auth error | "Sesi Anda telah berakhir. Silakan login kembali." (isian tetap terlihat) | Tidak berubah |
-| Bukan mitra | Postgres `42501` / RPC `current_user_is_partner` = false | "Akun ini tidak memiliki akses untuk menyimpan data." | Tidak berubah |
-| Artikel/produk tidak ditemukan atau ditolak RLS | Postgres `P0002` / UPDATE mengembalikan 0 baris | "Data tidak ditemukan atau Anda tidak memiliki akses." | Tidak berubah |
-| Jaringan/DB tidak tersedia | Exception fetch, timeout, 5xx | "Gagal menyimpan. Data sebelumnya tidak berubah. Silakan coba lagi." | Tidak berubah |
-| Error tak terduga | Lainnya | "Terjadi kesalahan. Silakan coba lagi." | Tidak berubah |
+| Input tidak valid | Parser/Zod gagal (tidak ada permintaan ke DB) / Postgres `22023` (kunci `stock_*`, `price_*`), `23514` | Pesan spesifik per kolom, mis. "Stok maksimal 2 angka di belakang koma." | **Pasti** tidak berubah |
+| Sesi tidak ada/kedaluwarsa | `getClaims()` kosong / Auth error / PostgREST `PGRST3xx` (JWT) | "Sesi Anda telah berakhir. Silakan login kembali." (isian tetap terlihat) | **Pasti** tidak berubah |
+| Bukan mitra | Postgres `42501` / RPC `current_user_is_partner` = false | "Akun ini tidak memiliki akses untuk menyimpan data." | **Pasti** tidak berubah |
+| Artikel/produk tidak ditemukan atau ditolak RLS | Postgres `P0002` / UPDATE mengembalikan 0 baris | "Data tidak ditemukan atau Anda tidak memiliki akses." | **Pasti** tidak berubah |
+| Database menolak dengan kode error lain | Respons error PostgREST yang memuat kode Postgres/PostgREST (mis. `57014` statement timeout) | "Gagal menyimpan. Data sebelumnya tidak berubah. Silakan coba lagi." | **Pasti** tidak berubah: PostgREST menjalankan permintaan dalam transaksi dan membatalkannya bila terjadi error |
+| **Hasil belum pasti** | Timeout, koneksi terputus/di-*reset*, exception `fetch` setelah permintaan mungkin terkirim, HTTP 5xx dari gateway **tanpa** kode error database, respons tidak bisa dibaca; atau di browser: panggilan Server Action gagal di jaringan | "Status penyimpanan belum dapat dipastikan. Memeriksa data tersimpan…" lalu prosedur §10.4 | **Tidak diketahui**: jangan klaim berhasil, jangan klaim tidak berubah |
+| Error tak terduga sebelum permintaan dikirim | Exception di kode aplikasi sebelum memanggil DB | "Terjadi kesalahan. Silakan coba lagi." | Pasti tidak berubah |
+
+Aturan klasifikasi: hasil dianggap **pasti** hanya bila (a) permintaan belum dikirim, (b) ada jawaban sukses
+berisi baris tersimpan, atau (c) ada jawaban error terstruktur dari PostgREST/Postgres. Selain itu, hasilnya
+**belum pasti**.
 
 - Error dicatat di log server (Vercel) dengan kode error dan konteks minimal, **tanpa** password, token,
   atau isi cookie.
@@ -930,6 +1060,53 @@ database (§8.7).
   nonaktif (`useActionState`/`useFormStatus`).
 - **Status kosong:** "Belum tersedia" (stok/harga NULL), "Produk belum tersedia" (tidak ada produk terbit),
   "Artikel belum tersedia".
+
+### 10.4 Hasil penyimpanan belum pasti: pembacaan ulang
+
+Berlaku untuk stok & harga, artikel, dan nama usaha (PRD FR-33, AC-51, AC-52).
+
+1. **Nilai pembanding.** Form membawa nilai *baseline* yang tampil saat form dirender: `stock_price_confirmed_at`
+   untuk produk, `updated_at` untuk artikel dan pengaturan. Nilai ini hanya dipakai untuk memilih pesan,
+   **bukan** untuk otorisasi. Setelah simpan yang berhasil, baseline di form diperbarui dari baris yang
+   dikembalikan.
+2. **Baca ulang.** Bila hasil belum pasti di Server Action, action menunggu sebentar (mis. ± 1 detik) lalu
+   membaca baris itu dengan sesi mitra. Bila ketidakpastian terjadi di browser (Server Action tidak
+   menjawab), form memanggil Server Action baca terpisah (mis. `recheckStockPrice`) atau memuat ulang data
+   panel.
+3. **Keputusan** (contoh produk):
+
+   | Hasil baca ulang | Pesan | Isian |
+   |---|---|---|
+   | `confirmed_at` ≠ baseline **dan** stok/harga = isian | Berhasil (diverifikasi ulang) + nilai & waktu dari hasil baca | Diganti nilai tersimpan |
+   | `confirmed_at` = baseline | "Saat diperiksa, data belum berubah. Silakan tekan Simpan & Konfirmasi lagi." | Tetap |
+   | `confirmed_at` ≠ baseline **dan** stok/harga ≠ isian | Tampilkan nilai yang benar-benar tersimpan + keterangan bahwa data diubah dari tempat lain | Tetap |
+   | Baca ulang gagal | "Status penyimpanan belum dapat dipastikan. Periksa koneksi, lalu muat ulang halaman untuk melihat data tersimpan sebelum mencoba lagi." | Tetap |
+
+4. **Menyimpan ulang aman untuk stok & harga.** Bila permintaan pertama ternyata masih diproses dan
+   *commit* setelah pembacaan ulang, efeknya sama dengan simpan ulang: angka yang sama dan waktu konfirmasi
+   yang lebih baru. Keduanya benar menurut BR-W3/BR-W4.
+5. **Artikel:** pembanding `updated_at`, kecocokan dibandingkan pada `title` dan `body`.
+6. **Nama usaha:** pembanding `updated_at`, kecocokan pada `business_name`. Action pemeriksa ulang **selalu**
+   memanggil `updateTag('site-settings')` (hanya bisa di Server Action), karena bila *commit* sebenarnya
+   berhasil tetapi jawabannya hilang, cache nama tidak akan terbersihkan oleh action pertama.
+7. **Log:** catat kategori `uncertain` beserta kode/jenis error dan durasi, tanpa nilai isian, token, atau
+   cookie.
+
+### 10.5 Batas wajar yang selaras di server dan database
+
+| Batas | Aplikasi (`src/lib/domain/limits.ts`) | Constraint tabel | Pemeriksaan RPC | Uji |
+|---|---|---|---|---|
+| Stok minimum | `0` | `stock_kg BETWEEN 0 AND 100000` | `p_stock_kg < 0` → `stock_out_of_range` | Unit: `-1` ditolak. pgTAP: RPC `-0.01` ditolak |
+| Stok maksimum | `STOCK_MAX_KG = 100000` | (sama) | `p_stock_kg > 100000` → `stock_out_of_range` | Unit: `100000` diterima, `100000,01` ditolak. pgTAP: sama via RPC |
+| Desimal stok | `STOCK_MAX_DECIMALS = 2` | `numeric(10,2)` (membulatkan, jadi **bukan** penjaga) | `p_stock_kg <> round(p_stock_kg, 2)` → `stock_too_many_decimals` | Unit & pgTAP: `1.255` ditolak, tidak menjadi `1.26` |
+| Harga minimum | `0` | `price_per_kg_idr BETWEEN 0 AND 10000000` | `< 0` → `price_out_of_range` | Unit & pgTAP |
+| Harga maksimum | `PRICE_MAX_IDR = 10000000` | (sama) | `> 10000000` → `price_out_of_range` | Unit: `10.000.000` diterima, `10.000.001` ditolak. pgTAP: sama |
+| Harga bulat | parser menolak koma & titik non-ribuan | tipe `integer` | parameter `numeric` + `<> trunc(...)` → `price_not_whole` | pgTAP: RPC `35000.5` ditolak, tidak dibulatkan |
+| NaN / Infinity | parser hanya menerima digit | `BETWEEN` menolak | pemeriksaan rentang menolak | pgTAP: RPC `'NaN'` ditolak |
+
+Mengubah A-07 berarti mengubah konstanta aplikasi **dan** membuat migrasi baru untuk constraint + fungsi
+dalam satu perubahan (satu PR). Uji pgTAP memakai angka batas yang sama dengan unit test sehingga
+ketidakselarasan terlihat saat CI.
 
 ---
 
@@ -988,6 +1165,29 @@ Mekanisme yang mencegah waktu konfirmasi berubah karena hal lain (BR-W5, AC-32):
 
 ## 12. Strategi agar data produk terbaru muncul saat halaman dibuka/dimuat ulang
 
+### 12.0 Hasil verifikasi konfigurasi cache (Next.js 16.4.6, 18 November 2026)
+
+Sumber: dokumentasi resmi yang **dibundel di paket terpasang** (`node_modules/next/dist/docs/`, sesuai
+versi yang dikunci) dan kode sumber `node_modules/next/dist/server/config-shared.js` / `config.js`. Klaim
+sumber sekunder di versi 0.3 dokumen ini **tidak** lagi dipakai sebagai dasar keputusan.
+
+| Hal | Hasil verifikasi | Dampak pada proyek |
+|---|---|---|
+| Default `cacheComponents` | `false` di `config-shared.js`. Dokumen `cacheComponents.md`: diaktifkan dengan men-set `true`. Dokumen `caching.md`: aplikasi baru dari `create-next-app` dengan pilihan default **sudah** mengaktifkannya. Dicek langsung: template `create-next-app@16.4.6` menulis `cacheComponents: true` dan `partialPrefetching: true` ke `next.config.ts`, juga dengan `--yes`. | Klaim "bawaan untuk aplikasi baru" benar **hanya di level template**, bukan default framework. `next.config.ts` proyek ini men-set keduanya **eksplisit**, jadi perilaku tidak bergantung pada default. |
+| `partialPrefetching` | Diperkenalkan 16.3.0. Wajib bersama `cacheComponents` (tanpa itu `next dev`/`next build` gagal). Tidak di-set → berperilaku `false` + peringatan. Kedua opsi direncanakan aktif permanen di *major* berikutnya. | Di-set `true`. Link mem-*prefetch* App Shell; data yang bergantung pada `params` di-*resolve* setelah navigasi. |
+| Segment config lama | `dynamic`, `dynamicParams`, `revalidate`, `fetchCache` **dihapus** bila Cache Components aktif (16.0.0). `runtime` juga tidak didukung. | Jangan memakai `export const dynamic = 'force-dynamic'`, `revalidate`, atau `runtime`. Data tanpa cache otomatis berjalan saat permintaan. |
+| Data tanpa `'use cache'` | Dinamis secara bawaan. Akses data tanpa cache di luar `<Suspense>` memicu error validasi saat dev/build. | Komponen data produk dibungkus `<Suspense>`. |
+| `connection()` (`next/server`) | "Prerendering stops here"; kode sesudahnya hanya berjalan saat permintaan. | Dipakai sebagai penanda eksplisit di komponen data produk. |
+| Router cache klien | `experimental.staleTimes` (eksperimental): default `dynamic: 0` (tidak di-cache), `static: 300` detik. Tidak mengubah perilaku *back/forward*. Layout bersama tidak di-*refetch* setiap navigasi. Konten dari `'use cache'` disimpan browser minimal 30 detik. | Jangan set `staleTimes`. Jaminan PRD adalah **buka URL / muat ulang**; tombol *Back* dan navigasi klien dapat menampilkan salinan di memori. |
+| Penyimpanan `'use cache'` | Handler bawaan: **in-memory per instance**; di serverless entri biasanya tidak bertahan antar permintaan. Hasil prerender (shell statis) disimpan sebagai HTML di penyimpanan durable platform di belakang CDN. Semua cache terikat pada satu deployment (deploy baru = cache baru). | Lihat §12.5 untuk nama usaha. Data produk tidak memakai `'use cache'`. |
+| `updateTag` | Hanya di Server Action. Langsung meng-*expire* tag; permintaan berikutnya menunggu data baru (*read-your-own-writes*). | Dipakai setelah simpan nama usaha (§12.5, §10.4). |
+| `cacheLife('hours')` | Profil bawaan: `stale` 5 menit, `revalidate` 1 jam, `expire` 1 hari. | Jaring pengaman nama usaha bila DB diubah langsung. |
+| `proxy.ts` | Konvensi `middleware` sudah *deprecated* dan berganti nama menjadi `proxy`; runtime bawaan Node.js. | Tetap memakai `src/proxy.ts`. |
+
+**Belum terverifikasi (wajib diuji, bukan diasumsikan):** cara infrastruktur Vercel menerapkan `updateTag`
+pada shell statis yang tersimpan di CDN (antar-region dan antar-instance), serta nilai header cache yang
+muncul untuk halaman PPR. Keduanya diuji di Vercel preview (T-15, T-22) sebelum produksi.
+
 ### 12.1 Prinsip
 
 Data stok, harga, dan waktu konfirmasi **selalu dibaca dari database saat permintaan halaman**. Data itu
@@ -995,20 +1195,23 @@ tidak di-cache saat build, tidak di-cache di CDN, dan tidak memakai `'use cache'
 kecil dan query-nya hanya satu baris, sehingga biayanya sangat kecil, sementara jaminan kesegarannya sangat
 penting (FR-07, AC-09).
 
-### 12.2 Implementasi di Next.js 16
+### 12.2 Implementasi di Next.js 16.4.6
 
-- **Dengan `cacheComponents: true`** (direncanakan aktif):
+- **`cacheComponents: true` dan `partialPrefetching: true`** di-set eksplisit di `next.config.ts` (§12.0).
   - Bagian statis halaman (header, teks, layout) diprerender menjadi *shell*.
   - Komponen data produk **tidak** memakai `'use cache'`, memanggil `await connection()` sebagai penanda
     eksplisit "render saat request", dan dibungkus `<Suspense fallback={<ProductSkeleton />}>`.
-- **Tanpa `cacheComponents`** (bila versi/konfigurasi berbeda saat implementasi): `await connection()` tetap
-  membuat route dinamis. Bisa juga dengan konfigurasi segment `export const dynamic = 'force-dynamic'`.
-- Jangan memakai `unstable_cache`, `fetch` dengan `cache: 'force-cache'`, atau `revalidate = N` untuk data
+- **Jangan** memakai `export const dynamic`, `revalidate`, `fetchCache`, atau `runtime`. Opsi itu dihapus
+  bila Cache Components aktif. (Versi 0.3 dokumen ini menyebut `force-dynamic` sebagai alternatif; itu hanya
+  berlaku untuk mode tanpa Cache Components dan tidak dipakai di proyek ini.)
+- Jangan memakai `unstable_cache`, `fetch` dengan `cache: 'force-cache'`, atau `'use cache'` untuk data
   produk.
 - Klien Supabase untuk baca publik **tanpa cookie** (`public-client.ts`), supaya bagian lain halaman tetap
   statis dan tidak ada data sesi yang ikut ter-render.
-- **Router cache sisi klien:** jangan menaikkan `staleTimes.dynamic`. Biarkan default agar navigasi antar
-  halaman mengambil data dinamis yang segar.
+- **Router cache sisi klien:** jangan set `experimental.staleTimes`. Default `dynamic: 0` membuat data
+  dinamis tidak disimpan di router cache. Perhatikan bahwa tombol *Back/Forward* dan rute yang disembunyikan
+  lewat React `<Activity>` dapat menampilkan salinan di memori; jaminan PRD (AC-09, AC-11) adalah data
+  terbaru setelah **membuka URL atau memuat ulang**.
 
 ### 12.3 Strategi per halaman
 
@@ -1026,10 +1229,13 @@ Pola ini hanya dipakai bila diperlukan.
 
 ### 12.4 Cache di Vercel/CDN dan browser
 
-- Jangan menambahkan header `Cache-Control: s-maxage`/`public` pada halaman berisi data produk. Respons
-  dinamis Next.js secara bawaan tidak di-cache CDN.
-- Verifikasi saat pengujian: header respons halaman produk tidak menunjukkan cache hit di CDN (mis.
-  `x-vercel-cache` bukan `HIT`) dan nilainya berubah setelah mitra menyimpan.
+- Jangan menambahkan header `Cache-Control: s-maxage`/`public` pada halaman berisi data produk.
+- Dengan PPR, **shell statis** halaman produk boleh dilayani dari CDN, sedangkan bagian data produk
+  di-*stream* saat permintaan dalam respons yang sama. Karena itu header cache (mis. `x-vercel-cache`)
+  **tidak** dijadikan bukti tunggal: header itu bisa menunjukkan cache untuk shell walaupun data produknya
+  segar. (Versi 0.3 dokumen ini mensyaratkan header bukan `HIT`; syarat itu dikoreksi.)
+- **Bukti yang dipakai berbasis isi:** buka halaman produk → simpan nilai baru dari panel → muat ulang →
+  angka dan waktu konfirmasi baru tampil. Header dicatat sebagai informasi pendukung.
 - Tombol *Back* di browser bisa menampilkan salinan halaman dari memori browser (bfcache). Kebutuhan
   "dibuka atau dimuat ulang" tetap terpenuhi karena muat ulang selalu mengambil data baru (AC-11).
 - **Uji wajib di build produksi** (`next build && next start` dan di Vercel preview), **bukan hanya** `next dev`,
@@ -1082,10 +1288,18 @@ export async function updateBusinessName(prev, formData) {
   `'use cache'`.
 - Bila database diubah langsung oleh pengembang (bukan lewat panel), nama baru muncul paling lambat
   setelah masa `cacheLife` habis, atau segera setelah redeploy.
-- **Wajib dicek saat implementasi:** API `cacheTag`/`cacheLife`/`updateTag` dan perilaku invalidasinya
-  di Vercel (antar-instance function dan halaman prerender), sesuai versi Next.js yang dikunci. Bila
-  invalidasi ternyata tidak andal, **alternatifnya**: baca nama secara dinamis (`connection()`) di
-  komponen header/footer yang dibungkus `Suspense`. Pilihan ini sedikit lebih lambat tetapi pasti segar.
+- **Sudah dicek (§12.0):** `cacheTag`, `cacheLife('hours')`, dan `updateTag` tersedia di 16.4.6 dengan
+  perilaku seperti di atas. Handler `'use cache'` bawaan bersifat in-memory per instance, jadi kesegaran
+  nama **tidak** boleh bergantung pada cache in-memory itu, melainkan pada shell prerender + `updateTag`.
+- **Belum terverifikasi:** penerapan `updateTag` terhadap shell statis di CDN Vercel. Bila invalidasi
+  ternyata tidak andal, **alternatifnya**: baca nama secara dinamis (`connection()`) di komponen
+  header/footer yang dibungkus `Suspense`. Pilihan ini sedikit lebih lambat tetapi pasti segar.
+- **Risiko build:** nama dibaca saat `next build` untuk shell statis, sehingga build membutuhkan akses baca
+  ke database. Bila pembacaan gagal saat build, fallback "Ikan Nila" bisa ikut tertanam di shell statis
+  sampai shell diperbarui. Saat implementasi, kegagalan membaca `site_settings` **pada fase build** harus
+  menggagalkan build (atau memakai alternatif dinamis), bukan diam-diam memakai fallback.
+- Pengunjung yang tabnya sudah terbuka melihat nama baru setelah **memuat ulang** (layout bersama tidak
+  di-*refetch* saat navigasi klien). Ini sesuai BR-P4/AC-46.
 - Diuji di build produksi dan Vercel preview (T-22).
 
 ---
@@ -1140,14 +1354,19 @@ export const site = {
 - Disimpan di env var **`WHATSAPP_NUMBER`** (server-side). Tidak ada nomor di kode, dan **tidak ada nomor
   cadangan** (A-13).
 - **Nilai production dari klien: `6281575723540`** (+62 815-7572-3540). Nomor ini sudah dalam format `62…`
-  dan lolos validasi `^62\d{8,13}$` di bawah. Seluruh layanan pemesanan berlangsung lewat chat ke nomor
+  dan lolos validasi `^62[1-9]\d{7,12}$` di bawah. Seluruh layanan pemesanan berlangsung lewat chat ke nomor
   ini (PRD §1.1).
 - `src/lib/whatsapp.ts`:
-  1. Normalisasi: buang selain digit. Awalan `0` menjadi `62`, `+62` menjadi `62`, `8` menjadi `628`.
-  2. Validasi pola `^62\d{8,13}$`.
-  3. Hasil: `{ configured: true, number }` atau `{ configured: false }`. Nilai kosong/tidak valid **selalu**
-     menghasilkan `configured: false` dan peringatan di log build/server.
-  4. Tautan: `https://wa.me/${number}?text=${encodeURIComponent(pesan)}`.
+  1. **Validasi karakter dulu:** hanya digit, spasi, `+`, `-`, `.`, `(`, `)` yang diterima. Karakter lain
+     (mis. huruf) membuat nilai **tidak valid**, bukan dibuang diam-diam.
+  2. Normalisasi: buang pemisah. Awalan `0` menjadi `62`, `+62` menjadi `62`, `8` menjadi `628`.
+  3. Validasi pola `^62[1-9]\d{7,12}$` (total 10–15 digit, sama dengan rentang versi 0.3). Angka setelah `62`
+     tidak boleh `0`, sehingga salah tulis `+62 0812…` (menjadi `620812…`) ditolak, bukan menjadi tautan ke
+     nomor yang salah.
+  4. Hasil: `{ configured: true, number }` atau `{ configured: false, reason }`. Nilai kosong/tidak valid
+     **selalu** menghasilkan `configured: false` dan peringatan di log build/server (tanpa mencetak nilainya).
+  5. Tautan: `https://wa.me/${number}?text=${encodeURIComponent(pesan)}`. Fungsi pembuat tautan hanya
+     menerima konfigurasi yang valid, sehingga tautan tanpa nomor tidak mungkin terbentuk.
 - **Dilarang** membuat tautan `https://wa.me/?text=…` tanpa nomor, karena tautan itu membuka pemilih kontak
   dan pesan bisa terkirim ke orang yang salah.
 - Komponen `WhatsAppButton`:
@@ -1195,10 +1414,24 @@ export const site = {
 
 | Nama | Kegunaan |
 |---|---|
+| `SUPABASE_PROJECT_REF` | ID proyek untuk `supabase link`. Bukan rahasia, tetapi menentukan proyek mana yang akan diubah CLI. `check:env` memeriksa kecocokannya dengan host `NEXT_PUBLIC_SUPABASE_URL` bila keduanya terisi. |
 | `SUPABASE_ACCESS_TOKEN` | Login Supabase CLI untuk `supabase link` / `db push`. |
 | `SUPABASE_DB_PASSWORD` | Password database untuk migrasi via CLI. |
 | `E2E_PARTNER_EMAIL`, `E2E_PARTNER_PASSWORD` | Akun mitra **uji** (hanya di proyek dev/staging). |
 | `E2E_OUTSIDER_EMAIL`, `E2E_OUTSIDER_PASSWORD` | Akun login **bukan mitra** untuk uji akses terlarang. |
+
+Catatan konfigurasi lokal:
+
+- `.env.example` (di-commit) berisi semua nama di atas dengan placeholder. `.env.local` (diabaikan Git)
+  berisi nilai asli.
+- `npm run check:env` memuat `.env*` dengan cara yang sama seperti Next.js lalu melaporkan **nama** dan
+  status (`tersedia`, `kosong`, `tidak valid`, `tidak boleh ada`) saja, tanpa nilai. Hasil "tersedia"
+  **tidak** berarti proyek Supabase dapat dihubungi atau migrasinya sudah diterapkan.
+- Next.js memuat semua variabel `.env.local` ke proses server lokal, termasuk variabel tooling. Variabel
+  tanpa awalan `NEXT_PUBLIC_` tidak dikirim ke browser, tetapi variabel tooling tetap **tidak** boleh diset
+  di Vercel.
+- `check:env` menandai `SUPABASE_SECRET_KEY`/`SUPABASE_SERVICE_ROLE_KEY` bila ada, serta variabel
+  `NEXT_PUBLIC_*` yang nilainya tampak seperti kunci rahasia.
 
 ---
 
@@ -1218,9 +1451,12 @@ export const site = {
 
 1. Buat proyek **dev/staging** dan **production** terpisah (lebih aman untuk uji), region Singapura (A-19).
 2. Matikan signup publik, atur kebijakan password, dan set *Site URL* ke URL produksi.
-3. Dari lokal: `supabase link` → `supabase db push` untuk menerapkan migrasi (skema, keamanan, fungsi,
-   konten awal).
-4. Jalankan pgTAP (`supabase test db`) di lokal/staging.
+3. **Uji lokal dulu:** terapkan seluruh migrasi (urutan §8.8) ke Supabase **lokal** dari database kosong
+   dan jalankan pgTAP (`supabase test db`). Remote baru disentuh setelah semuanya lulus.
+4. Sebelum `supabase link` → `supabase db push` ke staging: jalankan `npm run check:env`, pastikan
+   `SUPABASE_PROJECT_REF` cocok dengan host `NEXT_PUBLIC_SUPABASE_URL`, dan pastikan
+   `SUPABASE_ACCESS_TOKEN`/`SUPABASE_DB_PASSWORD` yang terbaca (bisa berasal dari environment sistem)
+   memang milik proyek tujuan. Tinjau daftar migrasi yang akan diterapkan, lalu jalankan pgTAP di staging.
 5. Buat akun mitra + isi `partner_admins` secara manual (§9.6). Di staging, buat juga akun uji
    "outsider".
 6. Opsi lain: menghubungkan Supabase lewat **integrasi Vercel Marketplace** (env var tersinkron otomatis,
@@ -1284,15 +1520,16 @@ export const site = {
 | T-04 | Waktu WIB | Unit: `07:05Z` → "…pukul 14.05 WIB", `18:30Z` → tanggal berikutnya 01.30 WIB, `null` → "Belum pernah diperbarui". | AC-07, AC-08 |
 | T-05 | Gagal memuat | Simulasikan DB tidak tersedia → pesan gangguan, tidak ada "Stok habis"/"Belum tersedia", WhatsApp tetap ada. | AC-12 |
 | T-06 | Login & akses terlarang | Tanpa sesi → redirect dari semua `/mitra/*`. Password salah → pesan umum. Akun outsider → ditolak + signOut. Signup via API → ditolak. | AC-17–AC-22 |
-| T-07 | Akses terlarang di DB | pgTAP: `anon` & outsider tidak bisa UPDATE/INSERT/DELETE `products`/`articles`, tidak bisa eksekusi RPC dengan sukses, tidak bisa membaca `partner_admins`. Mitra tidak bisa INSERT/DELETE artikel atau UPDATE kolom selain `title`/`body`. | AC-21, AC-39 |
+| T-07 | Akses terlarang di DB | pgTAP: `anon` & outsider tidak bisa UPDATE/INSERT/DELETE `products`/`articles`, tidak bisa eksekusi RPC dengan sukses, tidak bisa membaca `partner_admins`. Mitra tidak bisa INSERT/DELETE artikel atau UPDATE kolom selain `title`/`body`. `has_function_privilege`: `anon` tidak punya EXECUTE pada fungsi proyek mana pun; `authenticated` hanya pada `current_user_is_partner` dan `confirm_product_stock_price`; tidak ada role API dengan EXECUTE pada fungsi di schema `private` atau USAGE pada schema `private`. Migrasi diterapkan dari database kosong tanpa error (urutan §8.8). | AC-21, AC-39 |
 | T-08 | Simpan stok desimal & harga | `12,5` & `12.5` → 12.50. `35.000` & `Rp 35.000` → 35000. Pesan berhasil memuat angka & waktu. | AC-26, AC-27 |
-| T-09 | Nilai tidak valid | Tabel input dari AC-28 → ditolak di Zod **dan** (via panggilan RPC langsung) di DB. Termasuk `1.255` yang **tidak boleh** dibulatkan diam-diam. Data & waktu tidak berubah. | AC-28 |
-| T-10 | Gagal simpan | Simulasikan error jaringan/DB → pesan gagal, isian tetap, DB tetap. | AC-29, AC-41 |
+| T-09 | Nilai tidak valid | Tabel input dari AC-28 → ditolak di parser/Zod **dan** (via panggilan RPC langsung) di DB. Termasuk `1.255` yang **tidak boleh** dibulatkan diam-diam, harga `35.50` yang **tidak boleh** menjadi `3550`, serta nilai batas di §10.5 (RPC: `100000.01`, `10000001`, `35000.5`, `'NaN'` ditolak; `100000` dan `10000000` diterima). Data & waktu tidak berubah. | AC-28 |
+| T-10 | Gagal simpan yang pasti | Simulasikan respons error berkode dari DB → pesan "Gagal menyimpan. Data sebelumnya tidak berubah.", isian tetap, DB tetap. | AC-29, AC-41 |
+| T-23 | Hasil simpan belum pasti | Simulasikan (a) timeout **setelah** RPC *commit*, (b) timeout **sebelum** permintaan sampai, (c) baca ulang ikut gagal, (d) jaringan browser putus saat memanggil Server Action. Pastikan pesan "belum dapat dipastikan" lalu hasil baca ulang yang benar (berhasil / belum berubah / belum dapat dipastikan). Pesan "Data sebelumnya tidak berubah" **tidak** muncul pada kasus ini. Untuk nama usaha, `updateTag` dipanggil saat pemeriksaan ulang. | AC-51, AC-52 |
 | T-11 | Konfirmasi ulang | Simpan angka sama → angka tetap, `confirmed_at` maju. Publik menampilkan waktu baru setelah reload. | AC-31 |
 | T-12 | Isolasi waktu | Edit artikel / UPDATE nama produk via SQL / login-logout → `confirmed_at` tetap. | AC-32 |
 | T-13 | Stok 0 & harga 0 | Simpan stok 0 → publik "Stok habis". Harga 0 → dialog konfirmasi (lanjut/batal). | AC-33, AC-34 |
 | T-14 | Edit artikel | Ubah judul & isi → publik berubah setelah reload, slug tetap, jumlah artikel tetap 2. Validasi panjang. Isi `<script>` tampil sebagai teks. | AC-37, AC-38, AC-40 |
-| T-15 | Data terbaru setelah reload | Di build produksi & Vercel preview: buka halaman produk → simpan dari panel → reload → nilai & waktu baru. Cek header cache. | AC-09–AC-11 |
+| T-15 | Data terbaru setelah reload | Di build produksi & Vercel preview: buka halaman produk → simpan dari panel → reload → nilai & waktu baru. Bukti berbasis isi; header cache dicatat sebagai informasi saja (§12.4). | AC-09–AC-11 |
 | T-16 | WhatsApp | Env terisi → `href` `https://wa.me/62…?text=…` memuat "Ikan Nila", `target=_blank`. Env kosong/tidak valid → tombol disabled, HTML tanpa `wa.me` dan tanpa nomor. Stok habis → templat "kapan tersedia lagi". | AC-13–AC-16 |
 | T-17 | Klik WA tidak mengubah stok | Klik tombol → tidak ada request ke DB. Nilai stok tetap. | AC-15 |
 | T-18 | Tampilan HP & desktop | Playwright proyek viewport 360×800, 768×1024, 1280×800 (+ emulasi Android/iPhone): tanpa gulir horizontal, tombol ≥ 44 px, form panel dapat dipakai, papan ketik angka (`inputMode`). | AC-42 |
@@ -1321,7 +1558,10 @@ export const site = {
 | RT12 | Dua perangkat mitra menyimpan hampir bersamaan | Risiko rendah (satu mitra). *Last write wins* dan pesan berhasil menampilkan nilai yang benar-benar tersimpan. Pengecekan konflik (versi/`confirmed_at` yang diharapkan) bisa ditambah nanti. |
 | RT13 | Latensi Vercel ↔ Supabase tinggi | Region berdekatan (Singapura) untuk DB dan function. |
 | RT14 | Env var WhatsApp/URL salah di production | Validasi saat build/start + daftar periksa peluncuran + smoke test pasca-deploy. |
-| RT15 | Cache nama usaha tidak terinvalidasi (nama lama tetap tampil), atau fallback ikut ter-cache | `updateTag` setelah simpan berhasil, error tidak ditangkap di dalam fungsi ber-cache, `cacheLife` sebagai jaring pengaman, uji T-22 di Vercel. Alternatif: baca dinamis + `Suspense` (§12.5). |
+| RT15 | Cache nama usaha tidak terinvalidasi (nama lama tetap tampil), atau fallback ikut ter-cache / tertanam di shell saat build | `updateTag` setelah simpan berhasil **dan** saat pemeriksaan ulang hasil belum pasti, error tidak ditangkap di dalam fungsi ber-cache, build gagal bila `site_settings` tidak terbaca, `cacheLife` sebagai jaring pengaman, uji T-22 di Vercel. Alternatif: baca dinamis + `Suspense` (§12.5). |
+| RT16 | Hasil simpan yang belum pasti dilaporkan sebagai gagal ("tidak berubah") atau berhasil | Klasifikasi pasti/belum pasti (§10.3) + baca ulang dengan baseline (§10.4), uji T-23. |
+| RT17 | Batas stok/harga di server dan database tidak selaras, sehingga panggilan API langsung bisa menyimpan nilai di luar batas | Constraint `BETWEEN` + pemeriksaan RPC dengan angka yang sama dengan `limits.ts`, perubahan dalam satu PR, uji batas di unit test dan pgTAP (§10.5, T-09). |
+| RT18 | Hak EXECUTE fungsi terlalu luas (bawaan `PUBLIC` / bawaan Supabase) | `revoke` eksplisit setelah setiap fungsi, `grant` hanya ke `authenticated` bila perlu, uji `has_function_privilege` (§8.8, T-07). |
 
 ---
 
@@ -1330,9 +1570,9 @@ export const site = {
 | # | Langkah | Selesai jika |
 |---|---|---|
 | 0 | **Gerbang:** PRD & ARCHITECTURE disetujui. Q-10 (akun/biaya) dan Q-01 (varian) dijawab atau default diterima. | Persetujuan tertulis. |
-| 1 | Scaffold Next.js 16 + TypeScript strict + Tailwind v4 + ESLint (non-interaktif), kunci versi, `git init`, `.gitignore`, `.env.example`, Vitest, Playwright, CI dasar (lint, typecheck, unit). | `npm run lint/typecheck/test` lulus di CI. |
-| 2 | Fungsi domain murni + unit test terlebih dulu: parser stok/harga, formatter WIB/rupiah/kg, status produk, WhatsApp (normalisasi, tautan, templat). | T-02, T-03, T-04, T-16 (unit) lulus. |
-| 3 | Supabase lokal: `supabase init`, migrasi skema → keamanan → fungsi → konten awal. pgTAP untuk RLS/grants/RPC. | T-07, T-09 (DB), T-12 (DB) lulus. |
+| 1 | Scaffold Next.js 16 + TypeScript strict + Tailwind v4 + ESLint (non-interaktif), kunci versi, `git init`, `.gitignore`, `.env.example`, Vitest, Playwright, CI dasar (lint, typecheck, unit). | `npm run lint/typecheck/test` lulus di CI. **Sebagian selesai (18 Nov 2026):** semua kecuali Playwright dan CI; lint, typecheck, test, dan `next build` lulus secara lokal. |
+| 2 | Fungsi domain murni + unit test terlebih dulu: parser stok/harga, formatter WIB/rupiah/kg, status produk, WhatsApp (normalisasi, tautan, templat), validasi env. | T-02, T-03, T-04, T-16 (unit) lulus. **Selesai secara lokal (18 Nov 2026).** Validasi nama usaha & artikel (BR-P3, BR-A6) menyusul bersama Server Action. |
+| 3 | Supabase lokal: `supabase init`, migrasi sesuai urutan §8.8 (schema & helper → tabel + RLS → fungsi pemeriksa akses → policy & grant → RPC → konten awal). pgTAP untuk RLS/grants/hak EXECUTE/batas/RPC. | Migrasi berjalan dari nol tanpa error. T-07, T-09 (DB), T-12 (DB) lulus. |
 | 4 | Proyek Supabase staging: `db push`, signup mati, akun mitra uji + outsider, generate tipe TS. | Koneksi dari lokal berhasil. |
 | 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. |
 | 6 | Autentikasi: klien Supabase, `proxy.ts` (`/mitra/*`), login/logout, `requirePartner()`, halaman akses ditolak. | T-06, T-21 lulus. |
@@ -1384,4 +1624,22 @@ Platform (dicek ulang saat implementasi karena dapat berubah):
 - Supabase custom SMTP (batasan email bawaan): https://supabase.com/docs/guides/auth/auth-smtp
 - Next.js Cache Components: https://nextjs.org/docs/app/getting-started/cache-components
 - Next.js `cacheTag` / `updateTag` (invalidasi nama usaha, §12.5): https://nextjs.org/docs/app/api-reference/functions/cacheTag dan https://nextjs.org/docs/app/api-reference/functions/updateTag
-- Info Next.js 16.4 (sumber sekunder): https://www.buildmvpfast.com/blog/nextjs-16-4-cache-components-default-upgrade-2026
+- **Sumber utama konfigurasi cache (sesuai versi terkunci 16.4.6, diperiksa 18 November 2026):**
+  dokumentasi resmi terbundel di `node_modules/next/dist/docs/01-app/` — `03-api-reference/05-config/01-next-config-js/cacheComponents.md`,
+  `partialPrefetching.md`, `staleTimes.md`; `03-api-reference/04-functions/connection.md`, `updateTag.md`, `cacheLife.md`;
+  `03-api-reference/01-directives/use-cache.md`, `use-cache-remote.md`; `03-api-reference/03-file-conventions/02-route-segment-config/index.md`,
+  `proxy.md`; `01-getting-started/08-caching.md`, `09-revalidating.md`; `02-guides/migrating-to-cache-components.md`.
+  Kode sumber: `node_modules/next/dist/server/config-shared.js` (nilai default) dan `config.js` (validasi
+  `partialPrefetching`). Template `create-next-app@16.4.6` diperiksa langsung (§12.0).
+- ~~Info Next.js 16.4 (sumber sekunder): https://www.buildmvpfast.com/blog/nextjs-16-4-cache-components-default-upgrade-2026~~
+  Tidak lagi dipakai sebagai dasar keputusan sejak versi 0.4; digantikan verifikasi di §12.0.
+
+---
+
+## Riwayat dokumen
+
+| Versi | Tanggal | Perubahan |
+|---|---|---|
+| 0.1–0.2 | 17 November 2026 | Draf awal arsitektur dan penyesuaian data usaha dari klien. |
+| 0.3 | 17 November 2026 | Nama usaha dapat diganti mitra dari panel (`site_settings`, §8.7, §12.5). |
+| 0.4 | 18 November 2026 | **(1) Urutan migrasi** disusun menurut ketergantungan (§7, §8.8): fungsi pemeriksa akses dibuat sebelum policy RLS yang memakainya; policy memanggil `public.current_user_is_partner()` sehingga fungsi di schema `private` tidak memerlukan hak apa pun dari role API; setiap fungsi langsung dicabut hak EXECUTE-nya dari `public`/`anon`/`authenticated` lalu diberikan hanya ke role yang perlu (§9.3–§9.5). **(2) Hasil simpan belum pasti** (timeout/koneksi terputus) dibedakan dari penolakan yang pasti dan dibaca ulang dengan baseline (§5.3–§5.6, §10.3, §10.4, T-23, RT16). **(3) Parser harga** memvalidasi format sebelum titik dihapus, sehingga `35.50` ditolak (§10.2). **(4) Batas stok/harga** diselaraskan antara aplikasi, constraint tabel `BETWEEN`, dan RPC; parameter harga RPC menjadi `numeric` agar pecahan ditolak, bukan dibulatkan; NaN/Infinity tertutup (§8.2, §9.5, §10.5, T-09, RT17). **(5) Konfigurasi cache** diverifikasi dari dokumentasi resmi terbundel dan kode sumber Next.js 16.4.6, menggantikan klaim sumber sekunder (§1.1, §12.0); koreksi: `force-dynamic` tidak berlaku bila Cache Components aktif, `staleTimes` berada di `experimental`, header CDN bukan bukti tunggal kesegaran data pada PPR, dan risiko fallback nama usaha tertanam di shell saat build (§12.2, §12.4, §12.5, RT15). **(6)** Normalisasi WhatsApp memvalidasi karakter dulu dan menolak `620…` (§13.2). **(7)** Env: `SUPABASE_PROJECT_REF`, `npm run check:env`, dan catatan environment sistem (§15). **(8)** Status fondasi aplikasi (header, §7, §19). Aturan "stok/harga terbaru tampil setelah reload, termasuk build produksi" dipertahankan. |

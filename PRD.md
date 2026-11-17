@@ -2,8 +2,8 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.3 (draf untuk ditinjau) |
-| Tanggal | 17 November 2026 |
+| Versi dokumen | 0.4 (draf untuk ditinjau) |
+| Tanggal | 18 November 2026 |
 | Status | Menunggu tinjauan dan persetujuan klien |
 | Dokumen terkait | [`ARCHITECTURE.md`](./ARCHITECTURE.md) (arsitektur teknis) |
 | Nama usaha | **Juki Fish Farm** (nama awal, dapat diganti mitra dari panel, lihat §1.1 dan §12.7) |
@@ -349,10 +349,16 @@ flowchart TD
     G --> H{"Input valid?"}
     H -- "Tidak" --> I["Pesan kesalahan per kolom, data lama tidak berubah"]
     I --> F
-    H -- "Ya" --> J{"Penyimpanan berhasil?"}
-    J -- "Tidak" --> K["Pesan gagal, data lama tidak berubah, isian tetap ada"]
+    H -- "Ya" --> J{"Hasil penyimpanan?"}
+    J -- "Pasti ditolak" --> K["Pesan gagal, data lama tidak berubah, isian tetap ada"]
     K --> G
-    J -- "Ya" --> L["Pesan berhasil + angka & waktu WIB yang tersimpan"]
+    J -- "Berhasil" --> L["Pesan berhasil + angka & waktu WIB yang tersimpan"]
+    J -- "Belum pasti (timeout / koneksi terputus)" --> P["Pesan: status belum dapat dipastikan, sistem membaca ulang data tersimpan"]
+    P --> Q{"Hasil pembacaan ulang?"}
+    Q -- "Data sudah tersimpan" --> L
+    Q -- "Data belum berubah saat diperiksa" --> R["Pesan: data belum berubah, silakan simpan lagi. Isian tetap ada"]
+    R --> G
+    Q -- "Pembacaan ulang gagal" --> S["Pesan: belum dapat dipastikan, muat ulang halaman untuk memeriksa. Isian tetap ada"]
 ```
 
 1. Mitra login (jika belum), lalu otomatis masuk ke halaman stok & harga.
@@ -364,8 +370,12 @@ flowchart TD
 5. Mitra menekan **Simpan & Konfirmasi**. Tombol nonaktif selama proses agar tidak tersimpan dua kali.
 6. Jika berhasil, muncul pesan dengan angka tersimpan dan waktu konfirmasi baru (WIB). Pengunjung yang
    membuka atau memuat ulang halaman produk sesudahnya melihat data baru.
-7. Jika gagal, muncul pesan yang jelas. Data lama tidak berubah sama sekali dan isian formulir tidak
-   hilang.
+7. Jika penyimpanan **pasti ditolak** (server/database menjawab dengan penolakan), muncul pesan yang
+   jelas. Data lama tidak berubah sama sekali dan isian formulir tidak hilang.
+8. Jika hasilnya **belum pasti** (batas waktu habis, koneksi HP terputus, atau jawaban server tidak
+   lengkap), panel **tidak** mengklaim berhasil dan **tidak** mengklaim data tidak berubah. Panel membaca
+   ulang data tersimpan lalu menampilkan hasil sebenarnya (AC-51). Menyimpan ulang angka yang sama aman,
+   karena hasilnya hanya memperbarui waktu konfirmasi.
 
 ### 9.3 Mitra mengonfirmasi ulang data yang nilainya tetap sama
 
@@ -437,6 +447,7 @@ flowchart TD
 | FR-30 | Halaman panel tidak diindeks mesin pencari. Seluruh situs `noindex` sampai konten asli siap. | Must | Saran (A-17) | AC-44 |
 | FR-31 | Panel menyediakan halaman pengaturan untuk melihat dan mengganti nama usaha. Hanya mitra yang diizinkan yang dapat menyimpan, dan pembatasan ini ditegakkan di database. | Must | Dikonfirmasi (Q-21) | AC-45–AC-48 |
 | FR-32 | Nama usaha yang tampil di seluruh website (header, footer, judul halaman, gambar bagikan, pesan WhatsApp) diambil dari pengaturan dan berubah setelah disimpan, paling lambat saat halaman dimuat ulang, tanpa redeploy. | Must | Dikonfirmasi (Q-21) | AC-46, AC-49 |
+| FR-33 | Hasil penyimpanan yang **belum pasti** (batas waktu habis, koneksi terputus, jawaban tidak lengkap) dibedakan dari penolakan yang pasti. Untuk hasil belum pasti, panel tidak mengklaim berhasil maupun "data tidak berubah", lalu membaca ulang data tersimpan untuk menentukan hasilnya. Berlaku untuk stok & harga, artikel, dan nama usaha. | Must | Saran (turunan US-17, FR-22) | AC-51, AC-52 |
 
 ---
 
@@ -488,8 +499,8 @@ flowchart TD
 | BR-S6 | Stok **belum pernah diisi** (kosong/NULL) ditampilkan **"Belum tersedia"** dan **tidak** dianggap nol. | Dikonfirmasi |
 | BR-S7 | Stok **0 kg** ditampilkan **"Stok habis"**. | Dikonfirmasi |
 | BR-S8 | Saat stok habis atau belum tersedia, tombol WhatsApp tetap dapat dipakai untuk bertanya. | Dikonfirmasi |
-| BR-S9 | Batas wajar input stok: **0 – 100.000 kg** untuk menangkap salah ketik. Nilai ini dapat disesuaikan. | Asumsi A-07 |
-| BR-S10 | Formulir menerima koma atau titik sebagai pemisah desimal (`12,5` = `12.5`) dan **tidak** menerima pemisah ribuan. | Asumsi A-03 |
+| BR-S9 | Batas wajar input stok: **0 – 100.000 kg** untuk menangkap salah ketik. Nilai ini dapat disesuaikan. Batas yang **sama** ditegakkan di validasi server **dan** di database (constraint tabel + fungsi simpan), sehingga panggilan API langsung pun tidak dapat menyimpan nilai di luar batas. Mengubah batas berarti mengubah keduanya sekaligus. | Asumsi A-07 |
+| BR-S10 | Formulir menerima koma atau titik sebagai pemisah desimal (`12,5` = `12.5`) dan **tidak** menerima pemisah ribuan. Format diperiksa **sebelum** dinormalisasi: paling banyak satu pemisah dan 2 angka di belakangnya. Input seperti `1.250,5` (dua pemisah) atau `1.250`/`1,255` (3 angka di belakang pemisah) **ditolak** dengan pesan, tidak dibulatkan dan tidak ditafsirkan sebagai ribuan. | Asumsi A-03 |
 
 Tabel tampilan stok di halaman publik:
 
@@ -511,8 +522,8 @@ Tabel tampilan stok di halaman publik:
 | BR-H4 | Harga **belum pernah diisi** ditampilkan **"Belum tersedia"**. Tidak ada angka contoh yang ditampilkan sebagai harga. | Dikonfirmasi |
 | BR-H5 | Harga **0** adalah nilai yang berbeda dari "belum diisi". Ditampilkan apa adanya ("Rp0 / kg") dan panel memberi peringatan konfirmasi sebelum menyimpannya. | Asumsi A-06 / Q-05 |
 | BR-H6 | Mitra dapat memperbarui harga kapan saja. | Dikonfirmasi |
-| BR-H7 | Batas wajar input harga: **Rp0 – Rp10.000.000 per kg** untuk menangkap salah ketik. Nilai ini dapat disesuaikan. | Asumsi A-07 |
-| BR-H8 | Formulir menerima `35000`, `35.000`, atau `Rp 35.000`. Input dengan sen/koma (mis. `35.000,50`) ditolak dengan pesan "Harga harus dalam rupiah bulat". | Asumsi A-02 |
+| BR-H7 | Batas wajar input harga: **Rp0 – Rp10.000.000 per kg** untuk menangkap salah ketik. Nilai ini dapat disesuaikan. Seperti BR-S9, batas yang sama ditegakkan di validasi server **dan** database (constraint tabel + fungsi simpan). | Asumsi A-07 |
+| BR-H8 | Formulir menerima `35000`, `35.000`, atau `Rp 35.000` (awalan `Rp`/`Rp.` boleh dengan atau tanpa spasi). Input dengan sen/koma (mis. `35.000,50`) ditolak dengan pesan "Harga harus dalam rupiah bulat". Format diperiksa **sebelum** titik dihapus: titik hanya sah sebagai pemisah ribuan dengan kelompok tepat 3 angka (`35.000`, `1.250.000`). Input seperti `35.50`, `3.5`, atau `35.0000` **ditolak** dengan pesan, tidak diam-diam menjadi `3550`, `35`, atau `350000`. | Asumsi A-02 |
 | BR-H9 | Harga saat ini menurut klien adalah **Rp32.000/kg**. Harga ini **tidak** ditanam di kode atau data awal. Mitra mengisinya lewat panel bersama stok pada penyimpanan pertama (saat UAT/peluncuran), sehingga waktu konfirmasi yang tampil benar-benar berasal dari mitra. Sebelum itu, harga tampil "Belum tersedia". | Dikonfirmasi (nilai) / Saran (cara pengisian) |
 
 Angka `35000` pada contoh format di dokumen ini hanya ilustrasi, bukan harga Juki Fish Farm.
@@ -645,13 +656,14 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | AC-25 | **Melihat data tersimpan.** Ketika mitra membuka `/mitra`, maka tampil stok, harga, dan waktu konfirmasi terakhir (WIB), atau "Belum pernah dikonfirmasi" bila kosong. Formulir terisi angka tersimpan (kosong bila belum pernah diisi). |
 | AC-26 | **Berhasil menyimpan.** Ketika mitra mengisi stok `12,5` dan harga `35000` lalu menekan Simpan & Konfirmasi, maka muncul pesan berhasil yang menyebutkan "12,5 kg", "Rp35.000 / kg", dan waktu konfirmasi baru (WIB). Di database: stok 12.50, harga 35000, waktu konfirmasi = waktu server saat penyimpanan. |
 | AC-27 | **Format input yang diterima.** Stok `12.5` dan `12,5` sama-sama tersimpan 12.50. Harga `35.000` dan `Rp 35.000` sama-sama tersimpan 35000. |
-| AC-28 | **Input tidak valid ditolak.** Untuk stok `-1`, `abc`, `1,255` (3 desimal), `1.250,5` (pemisah ribuan), kosong, atau di atas batas wajar, serta untuk harga `-5000`, `35000,5`, `35.000,50`, kosong, atau di atas batas wajar, maka muncul pesan kesalahan pada kolom terkait. Stok, harga, dan waktu konfirmasi di database **tidak berubah**. |
-| AC-29 | **Gagal menyimpan (gangguan jaringan/database).** Ketika penyimpanan gagal, maka muncul pesan "Gagal menyimpan. Data sebelumnya tidak berubah. Silakan coba lagi.", **tidak** ada pesan berhasil, isian formulir tetap ada, dan database tetap berisi nilai lama (tidak ada perubahan sebagian). |
+| AC-28 | **Input tidak valid ditolak.** Untuk stok `-1`, `abc`, `1,255` (3 desimal), `1.250` (3 angka di belakang titik), `1.250,5` (pemisah ribuan), kosong, atau di atas batas wajar, serta untuk harga `-5000`, `35000,5`, `35.000,50`, `35.50`, `3.5`, kosong, atau di atas batas wajar, maka muncul pesan kesalahan pada kolom terkait. Tidak ada input yang dibulatkan atau ditafsirkan ulang diam-diam. Stok, harga, dan waktu konfirmasi di database **tidak berubah**. Nilai di luar batas wajar atau stok > 2 desimal / harga pecahan yang dikirim **langsung** ke fungsi database (tanpa panel, dengan akun mitra) juga ditolak oleh database. |
+| AC-29 | **Gagal menyimpan yang pasti ditolak.** Diberikan server/database menjawab bahwa penyimpanan ditolak atau dibatalkan (mis. database mengembalikan kode error, atau permintaan dipastikan belum terkirim). Ketika mitra menekan Simpan & Konfirmasi, maka muncul pesan "Gagal menyimpan. Data sebelumnya tidak berubah. Silakan coba lagi.", **tidak** ada pesan berhasil, isian formulir tetap ada, dan database tetap berisi nilai lama (tidak ada perubahan sebagian). Pesan ini **hanya** dipakai bila penolakan sudah pasti, bukan untuk timeout atau koneksi terputus (AC-51). |
 | AC-30 | **Tidak tersimpan ganda.** Ketika tombol Simpan ditekan, maka tombol nonaktif dan bertuliskan "Menyimpan…" sampai proses selesai. |
 | AC-31 | **Konfirmasi ulang tanpa perubahan angka.** Diberikan stok 10 kg dan harga 35000 dengan waktu konfirmasi T1. Ketika mitra menekan Simpan & Konfirmasi tanpa mengubah angka pada waktu T2, maka muncul pesan "Data dikonfirmasi ulang (tidak ada perubahan angka)", angka tetap 10 kg & 35000, dan waktu konfirmasi menjadi T2. Halaman publik menampilkan T2 setelah dimuat ulang. |
 | AC-32 | **Perubahan lain tidak mengubah waktu konfirmasi.** Diberikan waktu konfirmasi T1. Ketika mitra mengedit artikel, mengganti nama usaha, login/logout, atau pengembang mengubah nama/deskripsi/foto produk, maka waktu konfirmasi tetap T1. |
 | AC-33 | **Menyimpan stok 0.** Ketika mitra menyimpan stok `0`, maka berhasil tersimpan dan halaman publik menampilkan "Stok habis". |
 | AC-34 | **Menyimpan harga 0.** Ketika mitra mengisi harga `0`, maka panel meminta konfirmasi ("Harga Rp0 akan tampil di website. Lanjutkan?"). Jika dikonfirmasi, harga tersimpan 0 dan publik menampilkan "Rp0 / kg". Jika dibatalkan, tidak ada yang tersimpan. |
+| AC-51 | **Hasil penyimpanan belum pasti.** Diberikan permintaan simpan stok & harga mungkin sudah terkirim tetapi tidak ada jawaban yang pasti (batas waktu habis, koneksi HP terputus, atau jawaban server terpotong). Ketika itu terjadi, maka panel **tidak** menampilkan pesan berhasil dan **tidak** menyatakan "Data sebelumnya tidak berubah". Panel menampilkan "Status penyimpanan belum dapat dipastikan. Memeriksa data tersimpan…" lalu membaca ulang data tersimpan: **(a)** bila waktu konfirmasi lebih baru dari sebelum menyimpan dan angkanya sama dengan isian, tampil pesan berhasil dengan angka dan waktu hasil pembacaan; **(b)** bila waktu konfirmasi masih sama dengan sebelum menyimpan, tampil "Saat diperiksa, data belum berubah. Silakan tekan Simpan & Konfirmasi lagi."; **(c)** bila waktu konfirmasi berubah tetapi angkanya berbeda dari isian, tampil angka yang benar-benar tersimpan beserta keterangan bahwa data diubah dari tempat lain; **(d)** bila pembacaan ulang juga gagal, tampil "Status penyimpanan belum dapat dipastikan. Periksa koneksi, lalu muat ulang halaman untuk melihat data tersimpan sebelum mencoba lagi." Pada semua kondisi, isian formulir tetap ada. |
 
 ### 13.5 Artikel
 
@@ -663,7 +675,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | AC-38 | **Validasi artikel.** Ketika judul atau isi dikosongkan, atau melebihi batas panjang, maka penyimpanan ditolak dengan pesan pada kolom terkait dan isi di database tidak berubah. |
 | AC-39 | **Menambah/menghapus artikel berada di luar cakupan MVP.** Panel **tidak** menampilkan tombol "Tambah artikel" atau "Hapus artikel". Ketika seseorang, termasuk akun mitra, mencoba menambah atau menghapus artikel melalui API secara langsung, maka database menolak dan jumlah artikel tetap dua. |
 | AC-40 | **Render aman.** Diberikan isi artikel memuat teks `<script>alert(1)</script>`. Ketika artikel dibuka, maka teks tampil sebagai teks biasa dan tidak ada skrip yang berjalan. |
-| AC-41 | **Gagal menyimpan artikel.** Ketika penyimpanan gagal, maka muncul pesan gagal, isian formulir tetap ada, dan artikel di database tidak berubah. |
+| AC-41 | **Gagal menyimpan artikel.** Ketika penyimpanan **pasti ditolak**, maka muncul pesan gagal, isian formulir tetap ada, dan artikel di database tidak berubah. Bila hasilnya belum pasti, berlaku AC-52. |
 
 ### 13.6 Tampilan, aksesibilitas, dan indeks
 
@@ -681,8 +693,9 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | AC-46 | **Berhasil mengganti nama.** Ketika mitra mengisi nama baru yang valid lalu menekan Simpan, maka muncul pesan berhasil yang menyebutkan nama baru. Setelah halaman publik dimuat ulang, header, footer, judul tab, dan pesan WhatsApp terisi memakai nama baru, **tanpa redeploy**. Diuji pada build produksi di Vercel, bukan hanya mode pengembangan. |
 | AC-47 | **Validasi nama.** Ketika nama dikosongkan, hanya berisi spasi, kurang dari 2 karakter, lebih dari 80 karakter, atau mengandung baris baru, maka penyimpanan ditolak dengan pesan pada kolom, dan nama di database tidak berubah. |
 | AC-48 | **Hak akses nama usaha.** Ketika pengguna tanpa login, akun yang tidak diizinkan, atau panggilan API langsung mencoba mengganti nama, maka ditolak dan nama tidak berubah. Akun mitra pun tidak dapat menambah atau menghapus baris pengaturan, dan tidak dapat mengubah kolom selain nama. |
-| AC-49 | **Isolasi & kegagalan.** Diberikan waktu konfirmasi stok T1. Ketika mitra mengganti nama, maka waktu konfirmasi tetap T1, URL halaman tidak berubah, dan isi artikel tidak berubah. Bila penyimpanan gagal, muncul pesan gagal, isian tetap ada, dan nama lama tetap tampil. |
+| AC-49 | **Isolasi & kegagalan.** Diberikan waktu konfirmasi stok T1. Ketika mitra mengganti nama, maka waktu konfirmasi tetap T1, URL halaman tidak berubah, dan isi artikel tidak berubah. Bila penyimpanan **pasti ditolak**, muncul pesan gagal, isian tetap ada, dan nama lama tetap tampil. Bila hasilnya belum pasti, berlaku AC-52. |
 | AC-50 | **Render aman.** Diberikan nama berisi `<b>Ikan</b>` atau `<script>`. Ketika halaman dibuka, maka teks tampil apa adanya sebagai teks biasa dan tidak ada skrip yang berjalan. |
+| AC-52 | **Hasil belum pasti pada artikel dan nama usaha.** Diberikan penyimpanan artikel atau nama usaha tidak mendapat jawaban yang pasti (batas waktu habis, koneksi terputus). Ketika itu terjadi, maka panel tidak mengklaim berhasil maupun "tidak berubah", membaca ulang data tersimpan, lalu menampilkan hasil sebenarnya dengan pola yang sama seperti AC-51 (tersimpan / belum berubah saat diperiksa / berbeda / belum dapat dipastikan). Isian tetap ada. Untuk nama usaha: bila pembacaan ulang menunjukkan nama baru sudah tersimpan, salinan nama tersimpan (cache) ikut dibersihkan sehingga halaman publik menampilkan nama baru setelah dimuat ulang. |
 
 ### 13.8 Matriks pembeda (ringkasan)
 
@@ -690,7 +703,8 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 |---|---|---|---|
 | Stok | 0 kg → "Stok habis" | Belum diisi → "Belum tersedia" | AC-01, AC-02, AC-33 |
 | Harga | 0 → "Rp0 / kg" (dengan peringatan di panel) | Belum diisi → "Belum tersedia" | AC-04, AC-05, AC-34 |
-| Penyimpanan | Berhasil → pesan + angka & waktu baru | Gagal/tidak valid → pesan gagal, data lama utuh | AC-26, AC-28, AC-29, AC-41 |
+| Penyimpanan | Berhasil → pesan + angka & waktu baru | Pasti ditolak/tidak valid → pesan gagal, data lama utuh | AC-26, AC-28, AC-29, AC-41 |
+| Hasil simpan | Pasti (berhasil atau ditolak) → pesan sesuai hasil | Belum pasti (timeout/koneksi terputus) → baca ulang, tanpa klaim berhasil atau "tidak berubah" | AC-29, AC-51, AC-52 |
 | Kesegaran data | Data tersimpan terbaru tampil setelah dimuat ulang | Data mungkin belum diperbarui mitra, tetap tampil dengan waktunya + keterangan | AC-09, AC-10, AC-11 |
 | WhatsApp | Dikonfigurasi → tautan berfungsi | Belum dikonfigurasi → tombol nonaktif, tanpa tautan | AC-13, AC-14 |
 | Hak akses | Mitra diizinkan → bisa mengubah | Tanpa login / akun tidak diizinkan / API langsung → ditolak | AC-17, AC-19–AC-21 |
@@ -708,7 +722,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | A-04 | Stok dan harga disimpan bersama dalam satu aksi dan berbagi **satu waktu konfirmasi**. | Sedang: waktu terpisah per kolom memerlukan kolom & UI tambahan. |
 | A-05 | Saat menyimpan, formulir mewajibkan **kedua** nilai (stok & harga) diisi. Panel MVP tidak menyediakan aksi "kosongkan kembali". Status "Belum tersedia" hanya terjadi sebelum penyimpanan pertama atau bila pengembang mengosongkannya. | Kecil. |
 | A-06 | Harga **Rp0 diizinkan** (tidak negatif), ditampilkan "Rp0 / kg", dengan peringatan konfirmasi di panel. | Kecil: bisa diubah menjadi "harga harus > 0". |
-| A-07 | Batas wajar input: stok ≤ 100.000 kg, harga ≤ Rp10.000.000/kg. Batas ini hanya untuk menangkap salah ketik. | Kecil: konstanta konfigurasi. |
+| A-07 | Batas wajar input: stok ≤ 100.000 kg, harga ≤ Rp10.000.000/kg. Batas ini hanya untuk menangkap salah ketik, dan ditegakkan **sama** di validasi server dan database. | Kecil: konstanta aplikasi + migrasi constraint/fungsi database, diubah bersamaan. |
 | A-08 | Login mitra memakai **email + password**. Akun dibuat pengembang. | Sedang bila ingin metode lain (mis. login lewat tautan email). |
 | A-09 | Di MVP, **reset password dilakukan pengembang** lewat dashboard penyedia autentikasi. Belum ada email otomatis. | Sedang: email otomatis memerlukan layanan SMTP. |
 | A-10 | Isi artikel memakai format teks dasar (Markdown terbatas) tanpa HTML dan tanpa gambar di dalam isi. Gambar sampul (jika ada) dikelola pengembang. | Sedang bila perlu editor kaya/gambar. |
@@ -814,7 +828,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | 1. Fondasi | Membuat proyek, tooling, standar kode, pengujian dasar. | Proyek berjalan lokal, lint & test lulus. |
 | 2. Database & keamanan | Skema tabel, aturan hak akses (RLS), fungsi konfirmasi stok & harga, data awal (produk + 2 artikel placeholder), uji hak akses. | Uji database lulus (akses terlarang ditolak). |
 | 3. Halaman publik | Beranda, katalog, detail produk, profil, artikel, kontak, tombol WhatsApp, status loading/kosong/error. | AC-01–AC-16, AC-35, AC-36, AC-40 lulus. |
-| 4. Panel mitra | Login/logout, stok & harga, konfirmasi ulang, edit artikel, ganti nama usaha. | AC-17–AC-34, AC-37–AC-39, AC-41, AC-45–AC-50 lulus. |
+| 4. Panel mitra | Login/logout, stok & harga, konfirmasi ulang, edit artikel, ganti nama usaha. | AC-17–AC-34, AC-37–AC-39, AC-41, AC-45–AC-52 lulus. |
 | 5. Pengujian menyeluruh | E2E, responsif, aksesibilitas, data terbaru di build produksi. | AC-42–AC-44 lulus. Laporan uji. |
 | 6. Deployment & UAT | Deploy ke domain bawaan Vercel (dengan `noindex`), uji bersama klien & mitra, pelatihan singkat mitra. | Klien menyetujui UAT. |
 | 7. Peluncuran | Mengganti seluruh placeholder, mengisi nomor WhatsApp, mengaktifkan indeks, domain khusus (opsional). | Daftar periksa peluncuran terpenuhi. |
@@ -849,3 +863,4 @@ keputusan Q-10.
 | 0.1 | 17 November 2026 | Draf awal berdasarkan kebutuhan yang disepakati dan pemeriksaan referensi. |
 | 0.2 | 17 November 2026 | Menambahkan data usaha dari klien (§1.1): nama Juki Fish Farm (dapat diubah), lokasi + tautan peta, produk tunggal ikan nila Rp32.000/kg, layanan via chat WhatsApp `6281575723540`. Q-01 terjawab, Q-02/Q-09 sebagian terjawab, Q-21 ditambahkan. Sejarah/gambaran usaha dan foto masih menunggu. |
 | 0.3 | 17 November 2026 | Q-21 terjawab: mitra dapat mengganti nama usaha dari panel. Menambahkan US-27, alur §9.5, FR-31–FR-32, aturan BR-P1–BR-P7 (§12.7), AC-45–AC-50 (§13.7), A-20, R12–R13. Alamat (RT 05/RW 11) dan tautan peta dikonfirmasi klien. |
+| 0.4 | 18 November 2026 | Perbaikan konsistensi, tanpa mengubah kebutuhan bisnis yang dikonfirmasi. **(1)** Hasil simpan dibedakan: pasti ditolak vs belum pasti (timeout/koneksi terputus). Pesan "Data sebelumnya tidak berubah" hanya untuk penolakan yang pasti; hasil belum pasti dibaca ulang (alur §9.2, FR-33, AC-29 diperjelas, AC-41/AC-49 diperjelas, AC-51–AC-52 baru, matriks §13.8). **(2)** Parser angka diperjelas: format diperiksa sebelum titik dihapus, sehingga `35.50` ditolak dan tidak menjadi `3550` (BR-H8, BR-S10, AC-28). Awalan `Rp.` diterima. **(3)** Batas wajar stok/harga ditegakkan sama di server dan database/fungsi simpan, termasuk untuk panggilan API langsung (BR-S9, BR-H7, A-07, AC-28). |
