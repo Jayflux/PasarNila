@@ -9,7 +9,13 @@ panel untuk satu mitra. Kebutuhan ada di [`PRD.md`](./PRD.md), keputusan teknis 
 Tahap fondasi + database: Next.js 16.4.6 (App Router, TypeScript strict, Tailwind CSS v4), fungsi domain
 murni, validasi konfigurasi, unit test, dan 6 migrasi Supabase v0.4 yang lulus uji database lokal.
 Migrasi **belum** diterapkan ke cloud (peruntukan proyek cloud belum terverifikasi, PRD Q-22).
-**Belum ada** halaman publik, panel, atau deployment.
+**Beranda publik** (`/`) sudah dibuat: hero, sorotan Ikan Nila (stok/harga/waktu dibaca dari database saat
+permintaan, di balik Suspense), profil, artikel (maks. 2), lokasi (alamat, peta Google tertanam, tombol
+"Buka di Google Maps"), dan kontak WhatsApp. Peta memuat konten pihak ketiga Google dan mencari alamat
+tertulis (tanpa API key atau koordinat); tombol Google Maps tetap menjadi acuan titik lokasi. Konten yang
+menunggu bahan klien (foto, deskripsi produk, sejarah usaha, jam operasional, isi artikel) tampil sebagai
+**placeholder, bukan konten final**. Halaman publik lain, panel mitra, dan deployment **belum** ada.
+Rincian di `ARCHITECTURE.md` §6.1.
 
 ## Kebutuhan
 

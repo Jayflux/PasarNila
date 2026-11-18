@@ -60,6 +60,17 @@ export function buildWhatsAppUrl(config: WhatsAppConfig, message: string): strin
   return text === "" ? base : `${base}?text=${encodeURIComponent(text)}`;
 }
 
+/**
+ * Nomor untuk DITAMPILKAN sebagai teks, mis. `6281575723540` → "+62 815-7572-3540".
+ * Hanya menerima konfigurasi valid; nomor yang belum dikonfigurasi tidak pernah tampil (AC-14).
+ */
+export function formatWhatsAppNumberForDisplay(config: WhatsAppConfig): string | null {
+  if (!config.configured) return null;
+  const local = config.number.slice(2);
+  if (local.length < 9) return `+62 ${local}`;
+  return `+62 ${local.slice(0, 3)}-${local.slice(3, 7)}-${local.slice(7)}`;
+}
+
 const PRODUCT_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** `https://contoh.vercel.app` + `ikan-nila` → `https://contoh.vercel.app/produk/ikan-nila`. */

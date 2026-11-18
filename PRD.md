@@ -2,7 +2,7 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.5 (draf untuk ditinjau) |
+| Versi dokumen | 0.6 (draf untuk ditinjau) |
 | Tanggal | 18 November 2026 |
 | Status | Menunggu tinjauan dan persetujuan klien |
 | Dokumen terkait | [`ARCHITECTURE.md`](./ARCHITECTURE.md) (arsitektur teknis) |
@@ -48,7 +48,7 @@ Website ini **bukan toko online**: tidak ada keranjang, checkout, pembayaran, at
 | Nama usaha | **Juki Fish Farm** | **[Dikonfirmasi]** sebagai nama awal. **Mitra dapat menggantinya sendiri dari panel** (Q-21 terjawab). Nama disimpan di tabel pengaturan di database dan dipakai di seluruh website (§12.7). |
 | Sejarah & gambaran usaha | `[[PLACEHOLDER: Sejarah dan gambaran usaha]]` | Menyusul dari klien (K5). |
 | Lokasi usaha | Jl. Setia Bersama, RT 05/RW 11, Kelurahan Meruyung, Kecamatan Limo, Kota Depok, Provinsi Jawa Barat | **[Dikonfirmasi]** (penulisan RT 05/RW 11 dikonfirmasi klien) |
-| Tautan peta | https://share.google/u0j1tZY5Q6MoMTD5P | **[Dikonfirmasi]**. Tautan berbagi Google. Klien mengonfirmasi tautan ini membuka titik lokasi yang benar. |
+| Tautan peta | https://share.google/u0j1tZY5Q6MoMTD5P | **[Dikonfirmasi]**. Tautan berbagi Google. Klien mengonfirmasi tautan ini membuka titik lokasi yang benar. Beranda juga menampilkan peta Google tertanam (permintaan pemilik proyek) yang mencari alamat tertulis di atas, sehingga bisa kurang tepat. Tombol "Buka di Google Maps" ke tautan ini tetap tersedia dan menjadi acuan titik lokasi. |
 | Produk | **Ikan nila saja** (satu produk) | **[Dikonfirmasi]**: menjawab Q-01 dan mengonfirmasi A-01. |
 | Harga | **Rp32.000 / kg** | **[Dikonfirmasi]** sebagai harga saat ini. Harga tetap diisi dan diperbarui mitra lewat panel (BR-H9). |
 | Layanan | Penjualan ikan secara online. Pemesanan dan transaksi dilayani **lewat chat WhatsApp**. | **[Dikonfirmasi]**: sesuai cakupan MVP (tanpa checkout/pembayaran di website). |
@@ -228,7 +228,7 @@ URL di bawah adalah usulan. Detail route ada di `ARCHITECTURE.md` §6.
 
 | Halaman | URL usulan | Akses | Fungsi utama | Konten placeholder |
 |---|---|---|---|---|
-| Beranda | `/` | Publik | Perkenalan usaha, ringkasan produk (stok, harga, waktu pembaruan), cuplikan profil, artikel, ajakan WhatsApp. | Tagline, foto, deskripsi singkat. (Nama usaha sudah tersedia.) |
+| Beranda | `/` | Publik | Perkenalan usaha, ringkasan produk (stok, harga, waktu pembaruan), cuplikan profil, artikel, lokasi (alamat, peta Google tertanam, tombol Google Maps), ajakan WhatsApp. | Tagline, foto, deskripsi singkat. (Nama usaha sudah tersedia.) |
 | Katalog produk | `/produk` | Publik | Daftar produk aktif. Untuk MVP satu produk "Ikan Nila", disertai stok, harga, waktu pembaruan, dan tombol WhatsApp. | Foto & deskripsi produk. |
 | Detail produk | `/produk/ikan-nila` | Publik | Informasi lengkap produk, status stok, harga/kg, waktu pembaruan, keterangan arti waktu, tombol WhatsApp. | Foto & deskripsi produk. |
 | Profil usaha | `/profil` | Publik | Nama usaha, lokasi, sejarah dan gambaran usaha. | Sejarah & gambaran usaha, foto usaha. (Nama & lokasi sudah tersedia.) |
@@ -480,7 +480,7 @@ flowchart TD
 | NFR-23 | Waktu | Waktu disimpan konsisten (zona waktu UTC di database) dan ditampilkan dalam **Asia/Jakarta (WIB)**. |
 | NFR-24 | Pemeliharaan | Konten placeholder, info usaha, dan nomor WhatsApp dapat diganti tanpa mengubah logika aplikasi. |
 | NFR-25 | Pemeliharaan | Struktur data mendukung penambahan pilihan produk tanpa perombakan besar. |
-| NFR-26 | Privasi | Website tidak mengumpulkan data pribadi pengunjung di MVP (tanpa formulir, tanpa akun pembeli). |
+| NFR-26 | Privasi | Website tidak mengumpulkan data pribadi pengunjung di MVP (tanpa formulir, tanpa akun pembeli). Peta Google tertanam di beranda memuat konten pihak ketiga, sehingga Google dapat menerima data permintaan pengunjung (mis. alamat IP) menurut kebijakan Google. |
 | NFR-27 | SEO dasar | Judul & deskripsi per halaman, sitemap, robots. Panel tidak diindeks. |
 
 ---
@@ -869,3 +869,4 @@ keputusan Q-10.
 | 0.3 | 17 November 2026 | Q-21 terjawab: mitra dapat mengganti nama usaha dari panel. Menambahkan US-27, alur §9.5, FR-31–FR-32, aturan BR-P1–BR-P7 (§12.7), AC-45–AC-50 (§13.7), A-20, R12–R13. Alamat (RT 05/RW 11) dan tautan peta dikonfirmasi klien. |
 | 0.4 | 18 November 2026 | Perbaikan konsistensi, tanpa mengubah kebutuhan bisnis yang dikonfirmasi. **(1)** Hasil simpan dibedakan: pasti ditolak vs belum pasti (timeout/koneksi terputus). Pesan "Data sebelumnya tidak berubah" hanya untuk penolakan yang pasti; hasil belum pasti dibaca ulang (alur §9.2, FR-33, AC-29 diperjelas, AC-41/AC-49 diperjelas, AC-51–AC-52 baru, matriks §13.8). **(2)** Parser angka diperjelas: format diperiksa sebelum titik dihapus, sehingga `35.50` ditolak dan tidak menjadi `3550` (BR-H8, BR-S10, AC-28). Awalan `Rp.` diterima. **(3)** Batas wajar stok/harga ditegakkan sama di server dan database/fungsi simpan, termasuk untuk panggilan API langsung (BR-S9, BR-H7, A-07, AC-28). |
 | 0.5 | 18 November 2026 | Alur pengembangan tanpa Docker: aplikasi lokal + Supabase cloud development/staging yang terpisah dari production; deployment Vercel di tahap berikutnya (§16.2, §18 fase 2). Q-22 ditambahkan (peruntukan dan region proyek cloud yang sudah ada); catatan region pada A-19. Kebutuhan bisnis tidak berubah. |
+| 0.6 | 18 November 2026 | Beranda publik dibuat dengan konten placeholder. Peta Google tertanam di bagian lokasi atas permintaan pemilik proyek (§1.1, §7, NFR-26); tombol Google Maps tetap tersedia. Kebutuhan bisnis dan pertanyaan terbuka lainnya tidak berubah. |

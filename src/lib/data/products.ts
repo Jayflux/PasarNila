@@ -1,0 +1,104 @@
+import "server-only";
+
+import { connection } from "next/server";
+import { z } from "zod";
+
+import type { StoredStockPrice } from "@/lib/domain/product-status";
+import { logReadError } from "@/lib/data/log";
+import { getPublicSupabaseClient, publicReadSignal } from "@/lib/supabase/public-client";
+
+/**
+ * Pembacaan produk untuk halaman publik (ARCHITECTURE.md §5.1, §12).
+ *
+ * Data stok/harga/waktu konfirmasi TIDAK di-cache: tanpa 'use cache', dan `connection()` dipanggil
+ * lebih dulu sehingga pembacaan selalu terjadi saat permintaan, tidak pernah saat prerender/build.
+ * Pemanggil wajib membungkus komponennya dengan <Suspense>.
+ *
+ * Tidak ada data cadangan/contoh: bila gagal, hasilnya `error` dan UI menampilkan pesan gangguan
+ * (PRD AC-12), bukan "Belum tersedia" atau angka.
+ */
+
+/** Satu-satunya produk MVP (PRD §1.1, A-01). Slug ditetapkan di migrasi data awal. */
+export const PRIMARY_PRODUCT_SLUG = "ikan-nila";
+/** Nama untuk teks UI/pesan WhatsApp saat data produk gagal dimuat (produk dikonfirmasi klien). */
+export const PRIMARY_PRODUCT_FALLBACK_NAME = "Ikan Nila";
+
+const PRODUCT_COLUMNS =
+  "slug, name, short_description, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
+
+/** PostgREST mengirim `numeric` sebagai angka JSON; string angka diterima sebagai cadangan. */
+const numericColumn = z.union([
+  z.number(),
+  z
+    .string()
+    .regex(/^\d+(\.\d+)?$/)
+    .transform(Number),
+]);
+
+const productRowSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  short_description: z.string().nullable(),
+  stock_kg: numericColumn.nullable(),
+  price_per_kg_idr: z.number().int().nullable(),
+  stock_price_confirmed_at: z.string().nullable(),
+});
+
+export type PublicProduct = {
+  slug: string;
+  name: string;
+  shortDescription: string | null;
+  stockPrice: StoredStockPrice;
+};
+
+export type PublicProductResult =
+  | { status: "ok"; product: PublicProduct }
+  /** Tidak ada produk terbit dengan slug ini → "Produk belum tersedia" (PRD NFR-13). */
+  | { status: "not_found" }
+  /** DB tidak dapat diakses, timeout, konfigurasi tidak lengkap, atau data tidak sesuai bentuk. */
+  | { status: "error" };
+
+export async function loadPublishedProduct(slug: string): Promise<PublicProductResult> {
+  // Penanda eksplisit: semua kode sesudah ini hanya berjalan saat permintaan (§12.2).
+  await connection();
+
+  try {
+    const { data, error } = await getPublicSupabaseClient()
+      .from("products")
+      .select(PRODUCT_COLUMNS)
+      .eq("slug", slug)
+      .eq("is_published", true)
+      .abortSignal(publicReadSignal())
+      .maybeSingle();
+
+    if (error) {
+      logReadError("products", error);
+      return { status: "error" };
+    }
+    if (data === null) return { status: "not_found" };
+
+    const parsed = productRowSchema.safeParse(data);
+    if (!parsed.success) {
+      logReadError("products", new Error("bentuk baris produk tidak sesuai skema"));
+      return { status: "error" };
+    }
+
+    const row = parsed.data;
+    return {
+      status: "ok",
+      product: {
+        slug: row.slug,
+        name: row.name,
+        shortDescription: row.short_description,
+        stockPrice: {
+          stockKg: row.stock_kg,
+          pricePerKgIdr: row.price_per_kg_idr,
+          confirmedAt: row.stock_price_confirmed_at,
+        },
+      },
+    };
+  } catch (error) {
+    logReadError("products", error);
+    return { status: "error" };
+  }
+}

@@ -2,9 +2,9 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.5 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
+| Versi dokumen | 0.6 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
 | Tanggal | 18 November 2026 |
-| Status | Usulan, menunggu persetujuan. **Fondasi aplikasi** dan **6 migrasi v0.4** sudah dibuat; migrasi lulus 86 uji database lokal (PGlite, tanpa Docker). **Belum** diterapkan ke cloud: peruntukan proyek cloud yang ada belum terverifikasi (PRD Q-22). Belum ada deployment. |
+| Status | Usulan, menunggu persetujuan. **Fondasi aplikasi** dan **6 migrasi v0.4** sudah dibuat; migrasi lulus 86 uji database lokal (PGlite, tanpa Docker). **Belum** diterapkan ke cloud: peruntukan proyek cloud yang ada belum terverifikasi (PRD Q-22). **Beranda publik** sudah dibuat dengan konten placeholder (§6.1). Belum ada deployment. |
 | Dokumen terkait | [`PRD.md`](./PRD.md): kebutuhan produk. ID `A-xx` (asumsi), `Q-xx` (pertanyaan), `AC-xx` (acceptance criteria), dan `BR-xx` (aturan bisnis) merujuk ke PRD. |
 
 Label status yang dipakai sama dengan PRD: **[Dikonfirmasi]**, **[Asumsi A-xx]**, **[Pertanyaan Q-xx]**, **[Saran]**.
@@ -433,6 +433,27 @@ melewatkannya setelah *commit* yang tidak terlaporkan membuat nama lama tetap ta
 - Path `/mitra` dipilih agar mudah dipahami. Merahasiakan path bukan bentuk keamanan, karena keamanan
   ditegakkan di lapis 2–3 (§3.2).
 
+### 6.1 Implementasi beranda (`/`, 18 November 2026)
+
+Route group `src/app/(publik)/` (layout: header, `<main>`, footer) dan `page.tsx`. Komponen bagian ada di
+`src/components/publik/beranda/`. Urutan bagian dan sumber datanya:
+
+| Bagian | Sumber data | Render |
+|---|---|---|
+| Header, footer | Nama usaha dari `getBusinessName()` (§12.5), nav dari `src/config/navigation.ts` | Shell statis |
+| Hero | Teks tetap yang faktual (PRD §1.1); visual abstrak bertema air, **bukan foto** | Shell statis |
+| Sorotan Ikan Nila | `loadPublishedProduct('ikan-nila')` + `getProductDisplay()`; stok, harga, dan waktu WIB tidak ditulis di kode | Dinamis, `<Suspense>` dengan kerangka. Menampilkan "Belum tersedia", "Stok habis", pesan gangguan (AC-12), atau "Produk belum tersedia" |
+| Profil | `site.ts`; sejarah/gambaran dan jam operasional berupa `Placeholder` selama `null` | Shell statis |
+| Artikel | `loadPublishedArticles()`, paling banyak 2 kartu; artikel bertanda `[PLACEHOLDER]` tampil sebagai kotak placeholder, bukan teks mentah | Dinamis, `<Suspense>` |
+| Lokasi | Alamat dan `mapsUrl` dari `site.ts`; peta tertanam + tombol Google Maps (§13.1) | Shell statis |
+| Kontak + footer | Tautan dari `src/lib/whatsapp-links.ts` (nomor hanya dari env, §13.2); nonaktif bila nomor belum dikonfigurasi (AC-14) | Shell statis |
+
+Status: konten **placeholder, bukan final**: foto usaha dan produk, deskripsi produk, sejarah/gambaran usaha,
+jam operasional, dan isi kedua artikel menunggu bahan klien (PRD K3–K5, K9). Menu "Produk", "Artikel",
+"Profil", dan "Kontak" sementara mengarah ke anchor di beranda karena route `/produk`, `/artikel`,
+`/profil`, dan `/kontak` belum dibuat; kartu artikel belum bertaut ke `/artikel/[slug]`. Animasi hanya
+transisi hover dan kemunculan section ringan, dengan dukungan `prefers-reduced-motion`.
+
 ---
 
 ## 7. Struktur folder proyek (usulan)
@@ -539,6 +560,11 @@ unit tanpa database.
 halaman sementara, `src/config/site.ts`, `src/config/whatsapp-messages.ts`, `src/lib/env.ts`,
 `src/lib/domain/*`, `src/lib/validation/*`, `src/lib/format/*`, `src/lib/whatsapp.ts`, dan
 `tests/unit/*`. Folder `supabase/`, klien Supabase, `proxy.ts`, halaman publik, dan panel **belum** dibuat.
+
+**Pembaruan 18 November 2026:** folder `supabase/` (migrasi) dan klien baca publik
+(`src/lib/supabase/public-client.ts`) kini ada, bersama lapisan data (`src/lib/data/*`), komponen publik
+(`src/components/*`), layout publik, dan **beranda** (§6.1). `proxy.ts`, panel mitra, dan route publik selain
+`/` **belum** dibuat.
 
 ---
 
@@ -1340,10 +1366,19 @@ export const site = {
   (`{businessName}`) semuanya memakai fungsi ini. Tidak ada nama usaha yang ditulis langsung di komponen,
   teks halaman, atau `site.ts`. Pemeriksaan otomatis (lint/grep di CI) dapat memastikan string
   "Juki Fish Farm" hanya muncul di migrasi data awal.
-- **Tautan peta:** `mapsUrl` adalah tautan berbagi Google (`share.google`) yang mengalihkan ke Google Maps.
-  Cukup untuk tombol "Buka di Google Maps" (`target="_blank"`). Klien sudah mengonfirmasi tautan ini
-  membuka titik yang benar. Bila nanti ingin menyematkan peta (iframe), diperlukan URL *embed* Google Maps
-  tersendiri dan penyesuaian CSP `frame-src`. Penyematan peta **tidak** termasuk MVP.
+- **Tautan peta:** `mapsUrl` adalah tautan berbagi Google (`share.google`) yang mengalihkan ke Google Maps,
+  dipakai untuk tombol "Buka di Google Maps" (`target="_blank"`). Klien sudah mengonfirmasi tautan ini
+  membuka titik yang benar, sehingga **hanya tautan ini** yang dianggap titik lokasi terkonfirmasi.
+- **Peta tertanam (beranda, atas permintaan pemilik proyek):** `src/lib/maps.ts` membentuk URL
+  `https://www.google.com/maps?q=<alamat dari site.ts>&output=embed`, ditampilkan di dalam kartu pada bagian
+  Lokasi (`loading="lazy"`, `title` deskriptif, atribut `sandbox`). Tanpa API key dan tanpa koordinat
+  tebakan. Karena peta mencari **alamat tertulis**, titiknya bisa kurang tepat; keterangan di bawah peta
+  mengarahkan pengunjung ke tombol "Buka di Google Maps", yang selalu tersedia sebagai fallback (juga bila
+  iframe gagal dimuat atau diblokir).
+- **Konten pihak ketiga:** iframe memuat halaman Google, sehingga Google dapat menerima data permintaan
+  pengunjung (mis. alamat IP) menurut kebijakan Google. Header keamanan saat ini hanya membatasi
+  `frame-ancestors` dan tidak membatasi `frame-src`. Bila CSP nanti diperketat, `https://www.google.com`
+  harus diizinkan di `frame-src`.
 
 - Komponen `<Placeholder label="Alamat" />` merender penanda yang **jelas tidak asli**, mis. kotak bergaris
   putus-putus bertuliskan "[Alamat belum tersedia]". Tidak ada data realistis palsu (BR-K2).
@@ -1590,7 +1625,7 @@ Catatan konfigurasi lokal:
 | 2 | Fungsi domain murni + unit test terlebih dulu: parser stok/harga, formatter WIB/rupiah/kg, status produk, WhatsApp (normalisasi, tautan, templat), validasi env. | T-02, T-03, T-04, T-16 (unit) lulus. **Selesai secara lokal (18 Nov 2026).** Validasi nama usaha & artikel (BR-P3, BR-A6) menyusul bersama Server Action. |
 | 3 | Migrasi sesuai urutan §8.8 (schema & helper → tabel + RLS → fungsi pemeriksa akses → policy & grant → RPC → konten awal), konvergen terhadap skema v0.3 cloud (§8.9). Uji database tanpa Docker (PGlite). | Migrasi berjalan dari nol dan dari v0.3 tanpa error. T-07, T-09 (DB), T-12 (DB) lulus. **Selesai secara lokal (18 Nov 2026):** 86 uji PGlite lulus. |
 | 4 | Proyek Supabase dev/staging terverifikasi: preflight + dry-run, `db push --remote`, signup mati, akun mitra uji + outsider, `test:db:cloud`, `test:api:cloud`, generate tipe TS. | Uji cloud lulus. **Belum:** peruntukan proyek belum dinyatakan (PRD Q-22). |
-| 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. |
+| 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. **Sebagian dikerjakan (18 Nov 2026):** layout publik dan beranda (§6.1) dengan placeholder. Belum ada katalog, detail produk, profil, kontak, artikel, robots/sitemap, dan uji T-xx terkait. |
 | 6 | Autentikasi: klien Supabase, `proxy.ts` (`/mitra/*`), login/logout, `requirePartner()`, halaman akses ditolak. | T-06, T-21 lulus. |
 | 7 | Panel stok & harga: form mobile-first, pratinjau, Server Action → RPC, pesan berhasil/gagal, konfirmasi ulang, dialog harga 0. | T-08–T-13 lulus. |
 | 8 | Panel artikel: daftar, form edit, pratinjau Markdown, Server Action, cek 0 baris. Panel pengaturan: form nama usaha, Server Action + `updateTag`, nama dari `getBusinessName()` di layout/metadata/WhatsApp. | T-14, T-22 lulus. |
@@ -1660,6 +1695,7 @@ Platform (dicek ulang saat implementasi karena dapat berubah):
 | 0.3 | 17 November 2026 | Nama usaha dapat diganti mitra dari panel (`site_settings`, §8.7, §12.5). |
 | 0.4 | 18 November 2026 | **(1) Urutan migrasi** disusun menurut ketergantungan (§7, §8.8): fungsi pemeriksa akses dibuat sebelum policy RLS yang memakainya; policy memanggil `public.current_user_is_partner()` sehingga fungsi di schema `private` tidak memerlukan hak apa pun dari role API; setiap fungsi langsung dicabut hak EXECUTE-nya dari `public`/`anon`/`authenticated` lalu diberikan hanya ke role yang perlu (§9.3–§9.5). **(2) Hasil simpan belum pasti** (timeout/koneksi terputus) dibedakan dari penolakan yang pasti dan dibaca ulang dengan baseline (§5.3–§5.6, §10.3, §10.4, T-23, RT16). **(3) Parser harga** memvalidasi format sebelum titik dihapus, sehingga `35.50` ditolak (§10.2). **(4) Batas stok/harga** diselaraskan antara aplikasi, constraint tabel `BETWEEN`, dan RPC; parameter harga RPC menjadi `numeric` agar pecahan ditolak, bukan dibulatkan; NaN/Infinity tertutup (§8.2, §9.5, §10.5, T-09, RT17). **(5) Konfigurasi cache** diverifikasi dari dokumentasi resmi terbundel dan kode sumber Next.js 16.4.6, menggantikan klaim sumber sekunder (§1.1, §12.0); koreksi: `force-dynamic` tidak berlaku bila Cache Components aktif, `staleTimes` berada di `experimental`, header CDN bukan bukti tunggal kesegaran data pada PPR, dan risiko fallback nama usaha tertanam di shell saat build (§12.2, §12.4, §12.5, RT15). **(6)** Normalisasi WhatsApp memvalidasi karakter dulu dan menolak `620…` (§13.2). **(7)** Env: `SUPABASE_PROJECT_REF`, `npm run check:env`, dan catatan environment sistem (§15). **(8)** Status fondasi aplikasi (header, §7, §19). Aturan "stok/harga terbaru tampil setelah reload, termasuk build produksi" dipertahankan. |
 | 0.5 | 18 November 2026 | **Alur tanpa Docker.** Laptop menjalankan Next.js lokal; database & auth memakai Supabase cloud dev/staging yang terpisah dari production; deployment Vercel di tahap berikutnya. Uji database lokal memakai PGlite + shim Supabase, uji cloud memakai `pg` (rollback) dan Data API dengan sesi pengguna (§1.1, §8.8, §16.2, §17.1, §19, Lampiran C). **Rekonsiliasi cloud:** skema v0.3 + 4 versi riwayat tanpa isi SQL ditemukan; migrasi v0.4 dibuat konvergen + 4 file catatan riwayat (§8.9). Terverifikasi read-only: default privileges Supabase, `postgres` BYPASSRLS, definisi `auth.uid()`, signup cloud masih aktif. Catatan CLI 3.2.0: dry-run menyetel role sementara `cli_login_postgres`. Rancangan keamanan dan kebutuhan bisnis tidak berubah. |
+| 0.6 | 18 November 2026 | **Beranda publik** dibuat (§6.1). **Peta Google tertanam** di bagian Lokasi atas permintaan pemilik proyek: menggantikan pernyataan "penyematan peta tidak termasuk MVP" di §13.1; memakai alamat tertulis tanpa API key atau koordinat, tombol Google Maps tetap sebagai fallback, dan konten pihak ketiga Google dicatat. Kebutuhan bisnis lain tidak berubah. |
 
 ## Lampiran C — Alur tanpa Docker & rekonsiliasi cloud (18 November 2026)
 

@@ -14,6 +14,9 @@ export type SiteInfo = {
   /** [[PLACEHOLDER: Sejarah dan gambaran usaha]], menyusul dari klien (K5). */
   profile: string | null;
   address: string | null;
+  /** Ringkasan lokasi untuk hero/header. Diturunkan dari `address`, bukan data tambahan. */
+  shortLocation: string | null;
+  /** Tautan berbagi Google yang dikonfirmasi klien membuka titik lokasi yang benar. */
   mapsUrl: string | null;
   /** Menunggu klien (K9). */
   operatingHours: OperatingHours | null;
@@ -28,6 +31,8 @@ export const site: SiteInfo = {
   address:
     "Jl. Setia Bersama, RT 05/RW 11, Kelurahan Meruyung, Kecamatan Limo, " +
     "Kota Depok, Provinsi Jawa Barat",
+  // Ringkasan dari alamat di atas (PRD §1.1, §2.1).
+  shortLocation: "Meruyung, Depok",
   mapsUrl: "https://share.google/u0j1tZY5Q6MoMTD5P",
   operatingHours: null,
   socials: [],

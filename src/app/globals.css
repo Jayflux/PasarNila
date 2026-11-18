@@ -1,24 +1,115 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens PasarNila (usulan awal, menunggu preferensi warna klien — PRD K13).
+ * Hijau kebiruan gelap + aksen toska + krem terang. Kombinasi teks/latar di bawah dipilih agar
+ * kontrasnya memenuhi WCAG 2.2 AA (PRD NFR-16):
+ * - ink / ink-muted di atas cream & surface: ≥ 5,5 : 1
+ * - teks putih di atas deep / accent-strong / wa: ≥ 5 : 1
+ * - accent-bright & on-deep-muted di atas deep: ≥ 6 : 1
+ */
+@theme {
+  --color-ink: #10292a;
+  --color-ink-muted: #4a6463;
+  --color-cream: #f7f5ef;
+  --color-surface: #ffffff;
+  --color-line: #dbe5e2;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
+  --color-deep: #0b4446;
+  --color-deep-strong: #08393b;
+  --color-on-deep: #eef7f5;
+  --color-on-deep-muted: #a9c7c3;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  --color-accent-strong: #0f766e;
+  --color-accent-bright: #5fd4c8;
+  --color-accent-soft: #dcf3ef;
+
+  --color-wa: #15803d;
+  --color-wa-hover: #166534;
+
+  --color-warn-soft: #fef3c7;
+  --color-warn-ink: #92400e;
+  --color-error-soft: #fde8e8;
+  --color-error-ink: #9b1c1c;
+  --color-neutral-soft: #eaf0ee;
+  --color-neutral-ink: #3f5554;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --animate-rise: rise 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 }
 
+:root {
+  color-scheme: light;
+  /* Warna cincin fokus; bagian berlatar gelap menimpanya lewat kelas .on-deep. */
+  --focus-ring: var(--color-accent-strong);
+}
+
+.on-deep {
+  --focus-ring: var(--color-accent-bright);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+/* Section anchor tidak tertutup header sticky. */
+[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/*
+ * Reveal saat scroll tanpa JavaScript: memakai scroll-driven animation bila browser mendukung.
+ * Browser yang belum mendukung (atau pengguna dengan reduced motion) langsung melihat konten utuh,
+ * jadi tidak ada konten yang bergantung pada animasi untuk tampil.
+ */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+  }
+}
+
+/* Mode reduced motion: hilangkan gerakan, sisakan transisi minimum. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
