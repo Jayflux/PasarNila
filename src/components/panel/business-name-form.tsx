@@ -1,132 +1,131 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState, useTransition } from "react";
 
+import { ResultNotice } from "@/components/panel/result-notice";
+import { usePanelAction } from "@/components/panel/use-panel-action";
 import { buttonClass } from "@/components/ui/button-styles";
-import { updateBusinessNameAction, type SiteSettingsActionResult } from "@/lib/actions/site-settings";
+import type { BusinessNameResult } from "@/lib/actions/core/site-settings";
+import {
+  recheckBusinessNameAction,
+  refreshBusinessNameCacheAction,
+  updateBusinessNameAction,
+} from "@/lib/actions/site-settings";
+import { BUSINESS_NAME_MAX_CHARS } from "@/lib/domain/limits";
+import type { ActionResult } from "@/lib/write/action-result";
+import { charLength } from "@/lib/validation/text-input";
 
-type BusinessNameFormProps = {
+type Props = {
+  /** Nama TERSIMPAN dari database (bukan nama cadangan tampilan). */
   currentName: string;
+  /** `updated_at` mentah dari database. */
+  currentUpdatedAt: string;
 };
 
-export function BusinessNameForm({ currentName }: BusinessNameFormProps) {
+/** Formulir nama usaha (PRD FR-29, AC-45–AC-50, AC-52). */
+export function BusinessNameForm({ currentName, currentUpdatedAt }: Props) {
   const [name, setName] = useState(currentName);
+  const [baselineUpdatedAt, setBaselineUpdatedAt] = useState(currentUpdatedAt);
+  const [refreshResult, setRefreshResult] = useState<ActionResult | null>(null);
+  const [refreshing, startRefresh] = useTransition();
 
-  const [state, formAction, isPending] = useActionState<SiteSettingsActionResult | null, FormData>(
-    updateBusinessNameAction,
-    null,
-  );
+  const action = usePanelAction<BusinessNameResult>({
+    save: updateBusinessNameAction,
+    recheck: recheckBusinessNameAction,
+    onResult: (result) => {
+      setRefreshResult(null);
+      if (result.saved) setBaselineUpdatedAt(result.saved.updatedAt);
+    },
+  });
+
+  const fieldError = action.result?.fieldErrors?.businessName;
+  const preview = name.replace(/\s+/g, " ").trim();
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (action.pending) return;
+    action.submit(new FormData(event.currentTarget));
+  }
+
+  function refreshPublicView() {
+    startRefresh(async () => {
+      try {
+        setRefreshResult(await refreshBusinessNameCacheAction());
+      } catch {
+        setRefreshResult({ state: "uncertain", message: "Penyegaran tampilan publik belum dapat dipastikan. Coba lagi." });
+      }
+    });
+  }
 
   return (
     <div className="space-y-6">
-      {state?.ok && state.message ? (
-        <div
-          role="status"
-          className="rounded-2xl border border-wa/30 bg-wa/10 p-5 text-wa flex items-center gap-3"
-        >
-          <span className="text-xl font-bold">✓</span>
-          <p className="font-bold">{state.message}</p>
-        </div>
-      ) : null}
-
-      {state && !state.ok && state.message ? (
-        <div
-          role="alert"
-          className="rounded-2xl border border-error-ink/20 bg-error-soft p-5 text-error-ink flex items-center gap-3"
-        >
-          <span className="text-xl font-bold">!</span>
-          <p className="font-bold">{state.message}</p>
-        </div>
-      ) : null}
+      <div aria-live="polite" className="space-y-3">
+        <ResultNotice
+          result={action.result}
+          pending={action.pending || refreshing}
+          onRecheck={action.recheck}
+          extraAction={
+            action.result?.warning ? { label: refreshing ? "Menyegarkan…" : "Segarkan tampilan publik", onClick: refreshPublicView } : undefined
+          }
+        />
+        <ResultNotice result={refreshResult} />
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[1.75rem] border border-line bg-surface p-6 sm:p-8 shadow-sm">
-          <h2 className="text-xl font-bold text-ink">Ubah Nama Usaha</h2>
-          <p className="text-sm text-ink-muted mt-1">
-            Nama ini adalah identitas resmi usaha Anda yang muncul di seluruh halaman website.
+        <div className="rounded-[1.75rem] border border-line bg-surface p-6 shadow-sm sm:p-8">
+          <h2 className="text-xl font-bold text-ink">Ubah nama usaha</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Nama ini tampil di header, footer, judul tab, dan pesan WhatsApp umum.
           </p>
 
-          <form action={formAction} className="mt-6 space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-6">
+            <input type="hidden" name="baselineUpdatedAt" value={baselineUpdatedAt} />
             <div>
               <div className="flex items-center justify-between">
                 <label htmlFor="businessName" className="block text-sm font-semibold text-ink">
-                  Nama Usaha Baru <span className="text-error-ink">*</span>
+                  Nama usaha <span className="text-error-ink">*</span>
                 </label>
-                <span className="text-xs text-ink-muted">{name.length} / 80</span>
+                <span className="text-xs text-ink-muted">
+                  {charLength(preview)} / {BUSINESS_NAME_MAX_CHARS}
+                </span>
               </div>
-              <div className="mt-2">
-                <input
-                  id="businessName"
-                  name="businessName"
-                  type="text"
-                  required
-                  maxLength={80}
-                  disabled={isPending}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="mis. Juki Fish Farm"
-                  className="block w-full rounded-xl border border-line bg-surface px-4 py-3 text-base font-semibold text-ink outline-none transition focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/20 disabled:bg-neutral-soft/50"
-                />
-              </div>
-              {state?.fieldError ? (
-                <p className="mt-1.5 text-xs font-semibold text-error-ink">{state.fieldError}</p>
-              ) : null}
+              <input
+                id="businessName"
+                name="businessName"
+                type="text"
+                required
+                autoComplete="organization"
+                aria-invalid={fieldError ? true : undefined}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="mt-2 block w-full rounded-xl border border-line bg-surface px-4 py-3 text-base font-semibold text-ink outline-none transition focus:border-accent-strong focus:ring-2 focus:ring-accent-strong/20"
+              />
+              {fieldError ? <p className="mt-1.5 text-sm font-semibold text-error-ink">{fieldError}</p> : null}
             </div>
 
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isPending}
-                className={`w-full ${buttonClass("primary")}`}
-              >
-                {isPending ? "Menyimpan Nama Usaha…" : "Simpan & Terapkan Nama Baru"}
-              </button>
-            </div>
-
-            <p className="text-xs text-ink-muted text-center leading-5">
-              Perubahan nama usaha akan langsung memperbarui header, footer, metadata SEO, serta pesan
-              WhatsApp pengunjung secara otomatis.
+            <button type="submit" disabled={action.pending} className={`w-full ${buttonClass("primary")}`}>
+              {action.pending ? "Menyimpan…" : "Simpan nama usaha"}
+            </button>
+            <p className="text-center text-xs leading-5 text-ink-muted">
+              Mengganti nama tidak mengubah waktu konfirmasi stok & harga maupun isi artikel.
             </p>
           </form>
         </div>
 
-        {/* Live Preview Card */}
-        <div className="space-y-6">
-          <div className="rounded-[1.75rem] border border-line bg-surface p-6 sm:p-8 shadow-sm">
-            <h3 className="text-base font-bold text-ink">Pratinjau Penggunaan Nama</h3>
-            <p className="text-xs text-ink-muted mt-1">
-              Bagaimana nama usaha ini akan terlihat di website:
-            </p>
-
-            <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-line bg-cream/50 p-4">
-                <p className="text-xs font-semibold text-accent-strong uppercase">
-                  Header &amp; Navigasi:
-                </p>
-                <p className="mt-1 text-lg font-bold text-deep truncate">
-                  {name || "(Nama belum diisi)"}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-line bg-cream/50 p-4">
-                <p className="text-xs font-semibold text-accent-strong uppercase">
-                  Pesan WhatsApp Pengunjung:
-                </p>
-                <p className="mt-1 text-sm text-ink leading-6 italic">
-                  &ldquo;Halo {name || "..."} , saya ingin bertanya tentang ikan nila.&rdquo;
-                </p>
-              </div>
-
-              <div className="rounded-2xl border border-line bg-cream/50 p-4">
-                <p className="text-xs font-semibold text-accent-strong uppercase">
-                  Hak Cipta Footer:
-                </p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  © {name || "..."}. Website informasi; transaksi disepakati melalui WhatsApp.
-                </p>
-              </div>
+        <div className="rounded-[1.75rem] border border-line bg-surface p-6 shadow-sm sm:p-8">
+          <h3 className="text-base font-bold text-ink">Pratinjau</h3>
+          <dl className="mt-6 space-y-4">
+            <div className="rounded-2xl border border-line bg-cream/50 p-4">
+              <dt className="text-xs font-semibold uppercase text-accent-strong">Header</dt>
+              <dd className="mt-1 truncate text-lg font-bold text-deep">{preview || "(Nama belum diisi)"}</dd>
             </div>
-          </div>
+            <div className="rounded-2xl border border-line bg-cream/50 p-4">
+              <dt className="text-xs font-semibold uppercase text-accent-strong">Pesan WhatsApp umum</dt>
+              <dd className="mt-1 text-sm leading-6 text-ink italic">
+                &ldquo;Halo {preview || "…"}, saya ingin bertanya tentang ikan nila.&rdquo;
+              </dd>
+            </div>
+          </dl>
         </div>
       </div>
     </div>

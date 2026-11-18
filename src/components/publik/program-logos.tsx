@@ -1,3 +1,10 @@
+/**
+ * Logo program pemerintah (Diktisaintek Berdampak, Ditjen Risbang, Mahasiswa Berdampak).
+ *
+ * TIDAK DIPAKAI di halaman mana pun: dukungan/kemitraan program ini belum terkonfirmasi tertulis
+ * (PRD §17 K16). Menampilkannya dapat menyiratkan dukungan resmi. Komponen dan aset di
+ * `public/images/logos/` dipertahankan agar mudah dipasang kembali setelah ada konfirmasi dan izin.
+ */
 import Image from "next/image";
 
 type ProgramLogosProps = {

@@ -19,7 +19,8 @@ export default function AksesDitolakPage() {
 
         <h1 className="mt-5 text-2xl font-bold text-ink">Akses Ditolak</h1>
         <p className="mt-3 text-sm text-ink-muted leading-6">
-          Akun Anda berhasil masuk ke autentikasi, tetapi <strong>tidak terdaftar di daftar mitra (allowlist)</strong> pengelola PasarNila.
+          Akun ini berhasil login, tetapi <strong>tidak terdaftar sebagai mitra</strong> pengelola website ini,
+          sehingga tidak dapat membuka panel atau mengubah data.
         </p>
 
         <div className="mt-8 space-y-3">

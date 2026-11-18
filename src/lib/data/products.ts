@@ -25,9 +25,6 @@ export const PRIMARY_PRODUCT_SLUG = "ikan-nila";
 export const PRIMARY_PRODUCT_FALLBACK_NAME = "Ikan Nila";
 
 const PRODUCT_COLUMNS =
-  "slug, name, short_description, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
-
-const PARTNER_PRODUCT_COLUMNS =
   "id, slug, name, short_description, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
 
 /** PostgREST mengirim `numeric` sebagai angka JSON; string angka diterima sebagai cadangan. */
@@ -40,6 +37,7 @@ const numericColumn = z.union([
 ]);
 
 const productRowSchema = z.object({
+  id: z.string().uuid(),
   slug: z.string().min(1),
   name: z.string().min(1),
   short_description: z.string().nullable(),
@@ -48,11 +46,9 @@ const productRowSchema = z.object({
   stock_price_confirmed_at: z.string().nullable(),
 });
 
-const partnerProductRowSchema = productRowSchema.extend({
-  id: z.string().uuid(),
-});
-
 export type PublicProduct = {
+  /** ID produk (bukan rahasia), dipakai untuk membaca paket produk ini. */
+  id: string;
   slug: string;
   name: string;
   shortDescription: string | null;
@@ -95,6 +91,7 @@ export async function loadPublishedProduct(slug: string): Promise<PublicProductR
     return {
       status: "ok",
       product: {
+        id: row.id,
         slug: row.slug,
         name: row.name,
         shortDescription: row.short_description,
@@ -134,8 +131,9 @@ export async function loadProductForPartner(slug: string): Promise<PartnerProduc
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("products")
-      .select(PARTNER_PRODUCT_COLUMNS)
+      .select(PRODUCT_COLUMNS)
       .eq("slug", slug)
+      .abortSignal(publicReadSignal())
       .maybeSingle();
 
     if (error) {
@@ -144,7 +142,7 @@ export async function loadProductForPartner(slug: string): Promise<PartnerProduc
     }
     if (data === null) return { status: "not_found" };
 
-    const parsed = partnerProductRowSchema.safeParse(data);
+    const parsed = productRowSchema.safeParse(data);
     if (!parsed.success) {
       logReadError("products_partner", new Error("bentuk baris produk mitra tidak sesuai skema"));
       return { status: "error" };

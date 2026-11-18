@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ArticleMarkdown } from "@/components/content/article-markdown";
 import { Placeholder } from "@/components/publik/placeholder";
 import { ArrowRightIcon } from "@/components/ui/icons";
 import { loadPublishedArticle } from "@/lib/data/article-detail";
@@ -28,6 +29,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+/**
+ * Detail artikel (PRD §7, AC-35, AC-40). Isi dirender sebagai Markdown dasar tanpa HTML mentah.
+ * Slug tak dikenal ditolak 404 oleh `src/proxy.ts` sebelum streaming dimulai.
+ */
 export default function ArticleDetailPage(props: PageProps) {
   return (
     <div className="py-12 md:py-20">
@@ -73,8 +78,8 @@ async function ArticleDetailContent({ params }: { params: Promise<{ slug: string
     return (
       <div className="rounded-[1.75rem] border border-line bg-surface p-8 sm:p-12">
         <Placeholder
-          label="Artikel Edukasi &amp; Informasi"
-          note="Naskah lengkap artikel ini sedang dalam proses penyusunan bersama pemilik usaha."
+          label="Isi artikel"
+          note="Judul dan isi menunggu bahan dari pemilik usaha."
           className="flex min-h-64 flex-col items-center justify-center text-center"
         />
         <div className="mt-8 text-center">
@@ -97,8 +102,8 @@ async function ArticleDetailContent({ params }: { params: Promise<{ slug: string
         </h1>
       </header>
 
-      <div className="mt-8 text-base leading-8 text-ink whitespace-pre-line space-y-4">
-        {article.body}
+      <div className="mt-8">
+        <ArticleMarkdown source={article.body} />
       </div>
 
       <footer className="mt-12 pt-6 border-t border-line flex items-center justify-between">
@@ -112,7 +117,7 @@ async function ArticleDetailContent({ params }: { params: Promise<{ slug: string
           href="/produk"
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-deep hover:underline"
         >
-          Lihat stok ikan nila
+          Lihat stok &amp; harga
           <ArrowRightIcon className="size-4" />
         </Link>
       </footer>

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 
-import { ProgramLogos } from "@/components/publik/program-logos";
 import { CloseIcon, MenuIcon } from "@/components/ui/icons";
 import type { NavItem } from "@/config/navigation";
 
@@ -68,7 +67,7 @@ export function MobileNav({ items, whatsappSlot }: Props) {
         hidden={!open}
         className="absolute inset-x-0 top-full border-b border-line bg-cream shadow-lg"
       >
-        <nav aria-label="Menu utama" className="mx-auto max-w-6xl px-4 py-4">
+        <nav aria-label="Menu utama" className="mx-auto max-w-6xl px-4 py-3">
           <ul className="flex flex-col">
             {items.map((item) => (
               <li key={item.href}>
@@ -82,15 +81,7 @@ export function MobileNav({ items, whatsappSlot }: Props) {
               </li>
             ))}
           </ul>
-
-          <div className="mt-4 border-t border-line pt-4 pb-2 [&>*]:w-full">{whatsappSlot}</div>
-
-          <div className="mt-4 pt-3 border-t border-line flex flex-col items-center gap-2">
-            <span className="text-[11px] font-semibold text-ink-muted uppercase tracking-wider">
-              Program Kemitraan:
-            </span>
-            <ProgramLogos size="sm" />
-          </div>
+          <div className="mt-3 border-t border-line pt-4 pb-2 [&>*]:w-full">{whatsappSlot}</div>
         </nav>
       </div>
     </div>

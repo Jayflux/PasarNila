@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { ProgramLogos } from "@/components/publik/program-logos";
 import { ChatIcon, ExternalIcon, PinIcon } from "@/components/ui/icons";
 import { PUBLIC_NAV } from "@/config/navigation";
 import { site } from "@/config/site";
@@ -9,7 +8,8 @@ import { getGeneralWhatsAppHref, getWhatsAppDisplayNumber } from "@/lib/whatsapp
 
 /**
  * Footer publik: identitas usaha, menu, alamat, dan kontak yang SUDAH tersedia (PRD §1.1).
- * Dilengkapi logo kolaborasi program pendampingan.
+ * Jam operasional belum diberikan klien (K9) sehingga tidak ditampilkan di sini. Logo program tidak
+ * ditampilkan sampai dukungannya terkonfirmasi tertulis (PRD K16).
  */
 export async function SiteFooter() {
   const businessName = await getBusinessName();
@@ -24,15 +24,6 @@ export async function SiteFooter() {
           <p className="mt-2 max-w-xs text-sm leading-6 text-on-deep-muted">
             Informasi stok dan harga ikan nila. Pemesanan dilayani melalui chat WhatsApp.
           </p>
-
-          <div className="mt-6 pt-6 border-t border-white/10">
-            <p className="text-xs font-semibold uppercase tracking-wider text-accent-bright">
-              Didukung Oleh Program:
-            </p>
-            <div className="mt-3">
-              <ProgramLogos size="sm" className="bg-white/10 p-2 rounded-lg backdrop-blur-xs w-fit" />
-            </div>
-          </div>
         </div>
 
         <nav aria-label="Menu footer">

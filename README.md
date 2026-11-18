@@ -6,16 +6,27 @@ panel untuk satu mitra. Kebutuhan ada di [`PRD.md`](./PRD.md), keputusan teknis 
 
 ## Status
 
-Tahap fondasi + database: Next.js 16.4.6 (App Router, TypeScript strict, Tailwind CSS v4), fungsi domain
-murni, validasi konfigurasi, unit test, dan 6 migrasi Supabase v0.4 yang lulus uji database lokal.
-Migrasi **belum** diterapkan ke cloud (peruntukan proyek cloud belum terverifikasi, PRD Q-22).
-**Beranda publik** (`/`) sudah dibuat: hero, sorotan Ikan Nila (stok/harga/waktu dibaca dari database saat
-permintaan, di balik Suspense), profil, artikel (maks. 2), lokasi (alamat, peta Google tertanam, tombol
-"Buka di Google Maps"), dan kontak WhatsApp. Peta memuat konten pihak ketiga Google dan mencari alamat
-tertulis (tanpa API key atau koordinat); tombol Google Maps tetap menjadi acuan titik lokasi. Konten yang
-menunggu bahan klien (foto, deskripsi produk, sejarah usaha, jam operasional, isi artikel) tampil sebagai
-**placeholder, bukan konten final**. Halaman publik lain, panel mitra, dan deployment **belum** ada.
-Rincian di `ARCHITECTURE.md` §6.1.
+Kode aplikasi MVP + paket katalog **selesai dan lulus uji lokal**. **Belum** diterapkan ke Supabase cloud,
+belum diuji di build produksi, dan belum ada deployment.
+
+- **Halaman publik:** beranda, `/produk`, `/produk/ikan-nila`, `/artikel`, `/artikel/[slug]`, `/profil`,
+  `/kontak`, `robots.txt`, `sitemap.xml`. Stok, harga, dan paket dibaca dari database setiap kali halaman
+  dibuka (tanpa cache). Bila data gagal dimuat, tampil pesan gangguan tanpa angka (AC-12). Isi artikel
+  dirender sebagai Markdown aman.
+- **Panel mitra** (`/mitra`): stok & harga satuan, **paket katalog** (`/mitra/paket`: tambah, ubah nama/berat/
+  harga total, hapus), artikel (edit judul & isi dua artikel), pengaturan nama usaha, login/logout.
+  Hasil simpan yang belum pasti (timeout/koneksi putus) dibaca ulang dan tidak dilaporkan "tidak berubah";
+  sesi yang berakhir tidak menghapus isian.
+- **Paket katalog:** semua paket memakai **stok total bersama** (asumsi PRD A-21). Harga total paket
+  ditentukan mitra; harga efektif/kg dan badge "Hemat Rp…" dihitung dari harga satuan per kg saat ini
+  (PRD §12.8, ARCHITECTURE §11.4). Belum ada paket awal.
+- **Database:** 7 migrasi (6 tahap v0.4 + `20261119000001_product_packages.sql`). Lulus 145 uji PGlite.
+  Migrasi #7 **belum** diterapkan ke cloud.
+- **Konten menunggu klien:** foto, deskripsi produk, sejarah usaha, jam operasional, isi artikel, daftar paket
+  awal, serta konfirmasi tertulis dukungan program pemerintah sebelum logonya ditampilkan (PRD K3–K5, K9,
+  K10, K16–K18). Konten itu tampil sebagai **placeholder, bukan konten final**.
+
+Rincian: `ARCHITECTURE.md` §6.2 dan Lampiran D (perbaikan audit commit `4373729`).
 
 ## Kebutuhan
 
@@ -40,8 +51,8 @@ npm run dev
 | `npm run build` / `npm start` | Build & jalankan mode produksi (uji cache wajib di sini, bukan hanya `dev`) |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `next typegen` + `tsc --noEmit` |
-| `npm test` | Unit test (Vitest) |
-| `npm run test:db` | Uji migrasi & keamanan database secara lokal (PGlite, tanpa Docker/jaringan) |
+| `npm test` | Unit test (Vitest): parser, domain, klasifikasi hasil simpan, inti Server Action, render komponen |
+| `npm run test:db` | Uji migrasi & keamanan database secara lokal (PGlite, tanpa Docker/jaringan), termasuk paket katalog |
 | `npm run check` | lint + typecheck + test + test:db |
 | `npm run check:env` | Memeriksa format & keberadaan env var (tidak memeriksa koneksi database) |
 
@@ -49,7 +60,8 @@ npm run dev
 
 - Jangan commit `.env.local` atau secret apa pun. Aplikasi tidak memakai Supabase secret key.
 - Nama usaha tidak ditulis di kode; sumbernya tabel `site_settings` (PRD §12.7).
-- Data stok/harga tidak di-cache (ARCHITECTURE.md §12).
+- Data stok/harga dan paket tidak di-cache (ARCHITECTURE.md §12).
+- Harga paket tidak ditulis di kode; sumbernya tabel `product_packages` yang diisi mitra (PRD §12.8).
 
 ## Database: Supabase cloud tanpa Docker
 

@@ -7,7 +7,12 @@ import { isPlaceholderText } from "@/lib/content/placeholder";
 import { logReadError } from "@/lib/data/log";
 import { getPublicSupabaseClient, publicReadSignal } from "@/lib/supabase/public-client";
 import { createServerSupabaseClient } from "@/lib/supabase/server-client";
-import type { PartnerArticle } from "@/lib/data/articles";
+import {
+  PARTNER_ARTICLE_COLUMNS,
+  partnerArticleRowSchema,
+  toPartnerArticle,
+  type PartnerArticle,
+} from "@/lib/data/articles";
 
 /**
  * Pembacaan detail artikel terbit untuk halaman /artikel/[slug] (ARCHITECTURE.md §6, §12.3).
@@ -67,32 +72,38 @@ export async function loadPublishedArticle(slug: string): Promise<PublicArticleR
 }
 
 /**
- * Pembacaan detail artikel tunggal untuk panel mitra (menggunakan session cookie mitra).
+ * Pembacaan detail artikel untuk panel mitra (sesi mitra).
+ * Gagal muat (`error`) dibedakan dari artikel yang memang tidak ada (`not_found`).
  */
-export async function loadArticleForPartner(slug: string): Promise<PartnerArticle | null> {
+export type PartnerArticleResult =
+  | { status: "ok"; article: PartnerArticle }
+  | { status: "not_found" }
+  | { status: "error" };
+
+export async function loadArticleForPartner(slug: string): Promise<PartnerArticleResult> {
   await connection();
   try {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("articles")
-      .select("slug, title, body, is_published, sort_order, updated_at")
+      .select(PARTNER_ARTICLE_COLUMNS)
       .eq("slug", slug)
+      .abortSignal(publicReadSignal())
       .maybeSingle();
 
-    if (error || !data) {
-      return null;
+    if (error) {
+      logReadError("articles_partner", error);
+      return { status: "error" };
     }
-
-    return {
-      slug: data.slug,
-      title: data.title,
-      body: data.body,
-      isPublished: data.is_published,
-      sortOrder: data.sort_order,
-      updatedAt: data.updated_at,
-    };
-  } catch {
-    return null;
+    if (data === null) return { status: "not_found" };
+    const parsed = partnerArticleRowSchema.safeParse(data);
+    if (!parsed.success) {
+      logReadError("articles_partner", new Error("bentuk baris artikel tidak sesuai skema"));
+      return { status: "error" };
+    }
+    return { status: "ok", article: toPartnerArticle(parsed.data) };
+  } catch (error) {
+    logReadError("articles_partner", error);
+    return { status: "error" };
   }
 }
-

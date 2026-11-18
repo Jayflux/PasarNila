@@ -87,31 +87,58 @@ export async function loadPublishedArticles(
 }
 
 /**
- * Pembacaan artikel untuk panel mitra (menggunakan session cookie mitra).
+ * Pembacaan artikel untuk panel mitra (sesi mitra; RLS mengizinkan mitra membaca semua artikel).
+ * Gagal muat (`error`) dibedakan dari daftar kosong (`ok` dengan 0 artikel).
  */
-export async function loadArticlesForPartner(): Promise<PartnerArticle[]> {
+export type PartnerArticlesResult =
+  | { status: "ok"; articles: PartnerArticle[] }
+  | { status: "error" };
+
+export const partnerArticleRowSchema = z.object({
+  slug: z.string().min(1),
+  title: z.string(),
+  body: z.string(),
+  is_published: z.boolean(),
+  sort_order: z.number().int(),
+  updated_at: z.string().nullable(),
+});
+
+export function toPartnerArticle(row: z.infer<typeof partnerArticleRowSchema>): PartnerArticle {
+  return {
+    slug: row.slug,
+    title: row.title,
+    body: row.body,
+    isPublished: row.is_published,
+    sortOrder: row.sort_order,
+    updatedAt: row.updated_at,
+  };
+}
+
+
+export const PARTNER_ARTICLE_COLUMNS = "slug, title, body, is_published, sort_order, updated_at";
+
+export async function loadArticlesForPartner(): Promise<PartnerArticlesResult> {
   await connection();
   try {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("articles")
-      .select("slug, title, body, is_published, sort_order, updated_at")
-      .order("sort_order", { ascending: true });
+      .select(PARTNER_ARTICLE_COLUMNS)
+      .order("sort_order", { ascending: true })
+      .abortSignal(publicReadSignal());
 
-    if (error || !data) {
-      return [];
+    if (error) {
+      logReadError("articles_partner", error);
+      return { status: "error" };
     }
-
-    return data.map((row) => ({
-      slug: row.slug,
-      title: row.title,
-      body: row.body,
-      isPublished: row.is_published,
-      sortOrder: row.sort_order,
-      updatedAt: row.updated_at,
-    }));
-  } catch {
-    return [];
+    const parsed = z.array(partnerArticleRowSchema).safeParse(data ?? []);
+    if (!parsed.success) {
+      logReadError("articles_partner", new Error("bentuk baris artikel tidak sesuai skema"));
+      return { status: "error" };
+    }
+    return { status: "ok", articles: parsed.data.map(toPartnerArticle) };
+  } catch (error) {
+    logReadError("articles_partner", error);
+    return { status: "error" };
   }
 }
-

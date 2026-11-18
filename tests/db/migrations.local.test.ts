@@ -111,7 +111,7 @@ describe("PGlite — migrasi & rekonsiliasi", () => {
     return ctx.db;
   };
 
-  it("urutan file migrasi: 4 catatan riwayat cloud lalu 6 tahap v0.4", () => {
+  it("urutan file migrasi: 4 catatan riwayat cloud, 6 tahap v0.4, lalu paket katalog", () => {
     expect(migrationFiles()).toEqual([
       "20261117000001_schema.sql",
       "20261117000002_security.sql",
@@ -123,6 +123,7 @@ describe("PGlite — migrasi & rekonsiliasi", () => {
       "20261118000004_policies_and_grants.sql",
       "20261118000005_rpc_functions.sql",
       "20261118000006_initial_content.sql",
+      "20261119000001_product_packages.sql",
     ]);
   });
 
@@ -147,6 +148,13 @@ describe("PGlite — migrasi & rekonsiliasi", () => {
       partners: 0,
       users: 0,
     });
+  });
+
+  it("tanpa paket awal: contoh/harga lama di kode bukan data klien (PRD §12.8)", async () => {
+    for (const variant of variants) {
+      const row = await db(variant).query<{ n: number }>("select count(*)::int as n from public.product_packages");
+      expect(row.rows).toEqual([{ n: 0 }]);
+    }
   });
 
   it("database baru: stok/harga/waktu konfirmasi belum diisi; nama awal Juki Fish Farm", async () => {

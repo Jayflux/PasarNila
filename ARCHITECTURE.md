@@ -2,9 +2,9 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.6 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
-| Tanggal | 18 November 2026 |
-| Status | Usulan, menunggu persetujuan. **Fondasi aplikasi** dan **6 migrasi v0.4** sudah dibuat; migrasi lulus 86 uji database lokal (PGlite, tanpa Docker). **Belum** diterapkan ke cloud: peruntukan proyek cloud yang ada belum terverifikasi (PRD Q-22). **Beranda publik** sudah dibuat dengan konten placeholder (§6.1). Belum ada deployment. |
+| Versi dokumen | 0.7 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
+| Tanggal | 19 November 2026 |
+| Status | Usulan, menunggu persetujuan. Halaman publik, panel mitra (stok & harga, **paket katalog**, artikel, pengaturan), dan **7 migrasi** (6 tahap v0.4 + paket katalog) sudah dibuat; lulus 145 uji database lokal (PGlite, tanpa Docker) dan 349 unit test. **Belum** diterapkan ke cloud (PRD Q-22) dan **belum** diuji di build produksi maupun Vercel. Belum ada deployment. |
 | Dokumen terkait | [`PRD.md`](./PRD.md): kebutuhan produk. ID `A-xx` (asumsi), `Q-xx` (pertanyaan), `AC-xx` (acceptance criteria), dan `BR-xx` (aturan bisnis) merujuk ke PRD. |
 
 Label status yang dipakai sama dengan PRD: **[Dikonfirmasi]**, **[Asumsi A-xx]**, **[Pertanyaan Q-xx]**, **[Saran]**.
@@ -274,9 +274,26 @@ sequenceDiagram
     end
 ```
 
-Setelah login, `proxy.ts` (hanya untuk `/mitra/*`) menyegarkan token yang kedaluwarsa di setiap permintaan
-panel. Layout panel memanggil `supabase.auth.getClaims()` (memverifikasi tanda tangan JWT) dan memeriksa
-status mitra sebelum merender apa pun.
+Setelah login, `proxy.ts` (untuk `/mitra/*`) menyegarkan token yang kedaluwarsa di setiap permintaan
+panel. Layout panel memeriksa sesi dan status mitra sebelum merender data panel.
+
+**Implementasi (19 Nov 2026, `src/lib/auth/require-partner.ts`):** pemeriksaan sesi memakai
+`supabase.auth.getUser()`, bukan `getClaims()`. `getUser()` memvalidasi token ke server Auth sehingga
+pengguna yang dihapus/diblokir dan sesi yang dicabut terdeteksi; biayanya satu panggilan jaringan per
+pemeriksaan. `getClaims()` (verifikasi tanda tangan lokal) tidak mendeteksi pencabutan sebelum token
+kedaluwarsa. `getSession()` tidak dipakai untuk otorisasi. Keduanya bukan pengganti RLS. Hasilnya dibagi
+tiga (`src/lib/auth/access-classify.ts`):
+
+| Hasil | Halaman/layout panel | Server Action |
+|---|---|---|
+| `no_session` (tidak ada sesi, token ditolak Auth/PostgREST) | redirect `/mitra/login` | `session_expired`: "Sesi Anda telah berakhir…", isian tetap |
+| `not_partner` (RPC menjawab `false`) | redirect `/mitra/akses-ditolak` | `forbidden` |
+| `check_failed` (jaringan, Auth/DB 5xx/429, RPC error) | pesan "Pemeriksaan akses sedang terganggu", data panel tidak dirender | `access_check_failed`: operasi ditolak, **bukan** dilaporkan sebagai "bukan mitra" |
+
+Login: kredensial ditolak → "Email atau password salah" (AC-18); gangguan jaringan/layanan → pesan gangguan
+(bukan "password salah"); batas percobaan → pesan tunggu. Bila allowlist menjawab `false` **atau**
+pemeriksaannya gagal, sesi di perangkat diakhiri (`signOut({ scope: "local" })`) dengan pesan yang berbeda.
+Logout memakai `signOut()` (global); bila jaringan gagal, sesi lokal tetap dihapus.
 
 ### 5.3 Update atau konfirmasi ulang stok dan harga
 
@@ -408,6 +425,47 @@ diperlakukan sebagai gagal yang pasti. Cache dibersihkan setelah penyimpanan ber
 **selalu** memanggil `updateTag('site-settings')`, karena membersihkan cache tidak berbahaya, sedangkan
 melewatkannya setelah *commit* yang tidak terlaporkan membuat nama lama tetap tampil (§10.4).
 
+Bila simpan berhasil tetapi `updateTag` melempar error, status tetap **tersimpan** disertai peringatan dan
+tombol "Segarkan tampilan publik" (Server Action terpisah yang memanggil `updateTag` lagi). Penyimpanan
+tidak pernah dilaporkan gagal karena invalidasi cache gagal.
+
+### 5.7 Pengelolaan paket katalog (PRD §12.8)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor M as Mitra
+    participant UI as Form paket di browser
+    participant SA as Server Action paket
+    participant DB as PostgreSQL fungsi RPC
+    M->>UI: Isi nama, berat, harga total lalu Tambah
+    Note over UI: ID permintaan (UUID) dibuat sekali per isian formulir
+    UI->>SA: Kirim form (tombol nonaktif selama menyimpan)
+    SA->>SA: Validasi parser Indonesia, gatePartnerAction
+    SA->>DB: rpc create_product_package(id, product_id, nama, berat, harga)
+    DB->>DB: Cek mitra, validasi, INSERT ... ON CONFLICT (id) DO NOTHING
+    alt berhasil atau permintaan ulang dengan isi sama
+        DB-->>SA: baris paket
+        SA-->>UI: Paket ditambahkan
+    else id sudah dipakai paket berisi lain
+        DB-->>SA: 23505 package_id_conflict
+        SA-->>UI: Ditolak, muat ulang halaman
+    else belum pasti (timeout/koneksi)
+        SA->>DB: Baca paket berdasarkan id
+        SA-->>UI: Terverifikasi / belum terlihat (tetap belum pasti, Periksa ulang) / baca gagal
+    end
+```
+
+- **Tidak ada paket ganda:** mengirim ulang permintaan yang sama (retry, hasil belum pasti, ketuk dua
+  kali) memakai ID yang sama. Database mengembalikan baris yang sudah ada; ID yang sama dengan isi berbeda
+  ditolak. ID baru dibuat browser hanya setelah tambah **pasti** berhasil.
+- **Ubah:** `update_product_package(id, nama, berat, harga)`; baseline `updated_at` mentah untuk pembacaan
+  ulang. **Hapus:** `delete_product_package(id)` dengan dialog konfirmasi yang menyebut paket. Hapus yang
+  menjawab `P0002` berarti paket memang sudah tidak ada (tujuan tercapai).
+- CRUD paket **tidak** menyentuh `public.products`: stok, harga satuan, dan `stock_price_confirmed_at` tetap.
+- Halaman panel tidak menampilkan formulir bila produk atau daftar paket gagal dimuat, agar mitra tidak
+  menambah paket tanpa melihat daftar.
+
 ---
 
 ## 6. Struktur halaman dan route
@@ -415,8 +473,8 @@ melewatkannya setelah *commit* yang tidak terlaporkan membuat nama lama tetap ta
 | Route | Jenis | Akses | Strategi render | Isi utama |
 |---|---|---|---|---|
 | `/` | Publik | Semua | Shell statis + bagian produk dinamis (Suspense) | Hero, ringkasan produk (stok/harga/waktu), cuplikan profil, 2 artikel, CTA WhatsApp |
-| `/produk` | Publik | Semua | Shell statis + daftar produk dinamis | Kartu produk aktif (MVP: 1) |
-| `/produk/[slug]` | Publik | Semua | Shell statis + data produk dinamis | Detail produk. Slug MVP: `ikan-nila`. Slug tak dikenal → 404 |
+| `/produk` | Publik | Semua | Shell statis + daftar produk & paket dinamis | Kartu produk aktif (MVP: 1) + ringkasan paket |
+| `/produk/[slug]` | Publik | Semua | Shell statis + data produk & paket dinamis | Detail produk + kartu paket dengan WhatsApp per paket. Slug MVP: `ikan-nila`. Slug tak dikenal → 404 (Proxy) |
 | `/profil` | Publik | Semua | Statis (nama usaha dari cache bertag, §12.5) | Profil usaha dari `src/config/site.ts` |
 | `/artikel` | Publik | Semua | Dinamis (MVP) | Daftar artikel terbit |
 | `/artikel/[slug]` | Publik | Semua | Dinamis (MVP) | Isi artikel. Slug tak dikenal → 404 |
@@ -426,10 +484,23 @@ melewatkannya setelah *commit* yang tidak terlaporkan membuat nama lama tetap ta
 | `/mitra/artikel` | Panel | Mitra | Dinamis, `no-store` | Daftar 2 artikel (tanpa tombol tambah/hapus) |
 | `/mitra/artikel/[slug]` | Panel | Mitra | Dinamis, `no-store` | Form edit judul & isi + pratinjau |
 | `/mitra/pengaturan` | Panel | Mitra | Dinamis, `no-store` | Form nama usaha |
+| `/mitra/paket` | Panel | Mitra | Dinamis, `no-store` | Daftar, tambah, ubah, hapus paket katalog (§5.7) |
 | `/robots.txt` | Sistem | — | Dinamis per env | `Disallow: /mitra`. `noindex` global sebelum peluncuran |
 | `/sitemap.xml` | Sistem | — | Dinamis | Hanya halaman publik |
 
 - **Logout** berupa Server Action (POST) dari tombol di header panel, **bukan** tautan GET.
+- **Status 404 (diverifikasi dari dokumentasi Next.js 16.4.6 terbundel, `loading.md` §Status codes,
+  `not-found.md`):** dengan Cache Components, shell prerender dikirim lebih dulu sehingga `notFound()` yang
+  berjalan saat permintaan hanya menghasilkan status **200 + `noindex`**. Agar slug tak dikenal mendapat
+  **404**, `src/proxy.ts` memeriksa slug `/produk/:slug` dan `/artikel/:slug` terhadap daftar slug
+  `src/config/known-slugs.ts` (sama dengan migrasi data awal; diuji) dan menjawab 404 sebelum render, tanpa
+  akses database. Slug dikenal yang tidak terbit tetap memakai `notFound()` (200 + `noindex`). Halaman
+  `app/not-found.tsx` dan `app/(publik)/not-found.tsx` menampilkan pesan 404 yang ramah (PRD §7).
+- **Cache-Control panel:** respons dinamis berbasis cookie mendapat
+  `private, no-cache, no-store, max-age=0, must-revalidate` dari Next.js (dokumentasi `self-hosting.md`,
+  `cdn-caching.md`). Shell prerender `/mitra/*` tidak memuat data sesi karena layout memeriksa sesi sebelum
+  merender apa pun. Karena itu **tidak** ada header tambahan di `next.config.ts`; nilai header di build
+  produksi/Vercel **belum terverifikasi** dan masuk uji T-15/T-21.
 - Path `/mitra` dipilih agar mudah dipahami. Merahasiakan path bukan bentuk keamanan, karena keamanan
   ditegakkan di lapis 2–3 (§3.2).
 
@@ -449,10 +520,25 @@ Route group `src/app/(publik)/` (layout: header, `<main>`, footer) dan `page.tsx
 | Kontak + footer | Tautan dari `src/lib/whatsapp-links.ts` (nomor hanya dari env, §13.2); nonaktif bila nomor belum dikonfigurasi (AC-14) | Shell statis |
 
 Status: konten **placeholder, bukan final**: foto usaha dan produk, deskripsi produk, sejarah/gambaran usaha,
-jam operasional, dan isi kedua artikel menunggu bahan klien (PRD K3–K5, K9). Menu "Produk", "Artikel",
-"Profil", dan "Kontak" sementara mengarah ke anchor di beranda karena route `/produk`, `/artikel`,
-`/profil`, dan `/kontak` belum dibuat; kartu artikel belum bertaut ke `/artikel/[slug]`. Animasi hanya
-transisi hover dan kemunculan section ringan, dengan dukungan `prefers-reduced-motion`.
+jam operasional, dan isi kedua artikel menunggu bahan klien (PRD K3–K5, K9). Menu kini mengarah ke route
+`/produk`, `/artikel`, `/profil`, dan `/kontak` (§6.2). Animasi hanya transisi hover dan kemunculan section
+ringan, dengan dukungan `prefers-reduced-motion`.
+
+### 6.2 Halaman publik & panel (commit `4373729` + perbaikan audit, 19 November 2026)
+
+- **Publik:** `/produk`, `/produk/[slug]`, `/artikel`, `/artikel/[slug]`, `/profil`, `/kontak`, `robots.txt`,
+  `sitemap.xml`. Bagian produk beranda, katalog, dan detail memakai satu sumber
+  (`src/components/publik/product/product-sections.tsx` → `loadPublishedCatalog`, tanpa cache). Produk gagal
+  dimuat → pesan gangguan AC-12 tanpa stok, harga, maupun paket. Isi artikel dirender sebagai Markdown aman
+  (`src/components/content/article-markdown.tsx`). Peta tertanam di beranda, profil, dan kontak memakai
+  satu komponen dengan keterangan "peta mencari alamat tertulis" (`src/components/publik/map-embed.tsx`).
+- **Panel:** `/mitra` (stok & harga), `/mitra/paket`, `/mitra/artikel`, `/mitra/artikel/[slug]`,
+  `/mitra/pengaturan`, `/mitra/login`, `/mitra/akses-ditolak`. Pembacaan panel membedakan berhasil, kosong,
+  tidak ditemukan, dan gagal dimuat; formulir tidak ditampilkan bila datanya gagal dibaca. Formulir nama
+  usaha diisi nama **tersimpan** (bukan nama cadangan), sehingga "Ikan Nila" tidak dapat tersimpan tanpa
+  sengaja menimpa nama asli.
+- **Sitemap** hanya memuat halaman publik dan tidak pernah menghasilkan URL `localhost`: tanpa URL situs
+  (pengembangan lokal) sitemap kosong; production mewajibkan `NEXT_PUBLIC_SITE_URL`.
 
 ---
 
@@ -751,6 +837,7 @@ merujuknya. Aturan Postgres yang menentukan urutan:
 | 4 | `<ts4>_policies_and_grants.sql` | Pencabutan hak tulis tabel, `grant select`, column grant (`articles.title/body`, `site_settings.business_name`), dan semua policy RLS. | #2 (tabel), #3 (fungsi pemeriksa) |
 | 5 | `<ts5>_rpc_functions.sql` | `public.confirm_product_stock_price(...)` beserta hak EXECUTE. | #2 (`products`), #3 (`private.is_partner_admin`) |
 | 6 | `<ts6>_initial_content.sql` | Produk, 2 artikel placeholder, 1 baris `site_settings` (idempoten, `on conflict do nothing`). Dijalankan sebagai pemilik migrasi sehingga tidak terhalang RLS. | #2 (dan sengaja setelah #4 agar data masuk ke skema yang sudah terkunci) |
+| 7 | `20261119000001_product_packages.sql` | Tabel `public.product_packages` + constraint + trigger + RLS + 2 policy baca, fungsi validasi `private.*`, dan RPC tambah/ubah/hapus paket beserta hak EXECUTE (§8.10, §9.9). Tanpa data paket awal. | #1, #2, #3 |
 
 **Hak EXECUTE fungsi.** Postgres secara bawaan memberi `EXECUTE` setiap fungsi baru kepada `PUBLIC`. Di
 schema `public`, Supabase juga memberi hak bawaan kepada role `anon` dan `authenticated` (perilaku ini dicek
@@ -764,6 +851,8 @@ memang memerlukannya:
 | `is_partner_admin()` | `private` | `security definer` | Tidak ada role API | Hanya dipanggil dari fungsi `security definer` lain (berjalan sebagai pemilik). Role API juga tidak diberi `USAGE` pada schema `private`. |
 | `current_user_is_partner()` | `public` | `security definer` | `authenticated` | Dipakai aplikasi saat login (§5.2) **dan** di semua policy RLS khusus mitra. Hanya menjawab tentang pemanggil sendiri. `anon` tidak memerlukannya karena policy yang memanggilnya hanya berlaku `to authenticated`. |
 | `confirm_product_stock_price(...)` | `public` | `security definer` | `authenticated` | Satu-satunya jalur ubah stok/harga. Fungsi menolak akun yang bukan mitra (`42501`). |
+| `normalize_package_name(text)`, `assert_package_numbers(numeric, numeric)` | `private` | biasa | Tidak ada role API | Validasi paket, hanya dipanggil fungsi RPC paket (`security definer`). |
+| `create_product_package(...)`, `update_product_package(...)`, `delete_product_package(uuid)` | `public` | `security definer` | `authenticated` | Satu-satunya jalur tulis paket. Menolak akun bukan mitra (`42501`) sebelum validasi. |
 
 Catatan: *Security Advisor* Supabase dapat menandai fungsi `security definer` yang bisa dieksekusi
 `authenticated` di schema yang diekspos. Untuk dua fungsi di atas hal itu disengaja, dan keduanya memeriksa
@@ -777,7 +866,25 @@ keamanan (§17.3). Proyek cloud dev/staging baru disentuh setelah uji lokal lulu
 ### 8.9 Rekonsiliasi proyek cloud yang sudah ada
 
 Lihat Lampiran C. Ringkas: cloud berisi skema v0.3 + 4 versi riwayat tanpa isi SQL; repo menyimpan 4 file
-catatan riwayat dengan versi yang sama, lalu 6 migrasi v0.4 yang konvergen.
+catatan riwayat dengan versi yang sama, lalu 6 migrasi v0.4 yang konvergen. Migrasi #7 (paket katalog)
+menambah objek baru tanpa mengubah objek lama, dan **belum** diterapkan ke cloud.
+
+### 8.10 Tabel `public.product_packages` (paket katalog, PRD §12.8)
+
+| Kolom | Tipe | Aturan |
+|---|---|---|
+| `id` | `uuid` PK | Dibuat browser untuk tambah (idempoten, §5.7); default `gen_random_uuid()` untuk tulis langsung pengembang. |
+| `product_id` | `uuid` not null | FK ke `public.products(id)` `on delete cascade`. Indeks `(product_id, weight_kg, price_total_idr, created_at)`. |
+| `name` | `text` not null | `char_length(btrim(name)) between 1 and 60` dan tanpa baris baru. RPC merapikan spasi. |
+| `weight_kg` | `numeric(10,2)` not null | `weight_kg > 0 and weight_kg <= 10000` (juga menolak NaN/Infinity). RPC menolak > 2 desimal **sebelum** cast, sehingga tidak dibulatkan. |
+| `price_total_idr` | `integer` not null | `between 0 and 1000000000`. Parameter RPC `numeric` + `<> trunc()` agar pecahan ditolak, bukan dibulatkan. |
+| `created_at`, `updated_at` | `timestamptz` | `updated_at` diisi trigger `private.set_updated_at()`: metadata paket, **bukan** waktu konfirmasi. |
+
+- **Tidak ada** kolom stok per paket (stok total bersama di `products.stock_kg`, PRD A-21) dan **tidak ada**
+  kolom penghematan/harga efektif (dihitung saat tampil, §11.4).
+- Tidak ada data paket awal. Harga 1/10/20 kg yang pernah ditulis di kode (`volume-pricing.ts`, sudah dihapus)
+  tidak dimigrasikan karena bukan data klien yang disetujui.
+- Batas sama dengan `src/lib/domain/limits.ts` (`PACKAGE_*`) dan diuji di PGlite.
 
 ---
 
@@ -798,6 +905,10 @@ catatan riwayat dengan versi yang sama, lalu 6 migrasi v0.4 yang konvergen.
 | Baca nama usaha (`site_settings`) | ✅ | ✅ | ✅ | ✅ |
 | Ubah nama usaha | ❌ | ❌ | ✅ | ✅ |
 | Tambah/hapus baris pengaturan | ❌ | ❌ | ❌ | ✅ |
+| Baca paket milik produk terbit | ✅ | ✅ | ✅ | ✅ |
+| Baca paket produk tidak terbit | ❌ | ❌ | ✅ | ✅ |
+| Tambah/ubah/hapus paket (via RPC) | ❌ | ❌ (fungsi menolak) | ✅ | ✅ |
+| Tulis langsung tabel paket | ❌ | ❌ | ❌ (hanya lewat RPC) | ✅ |
 | Baca/ubah `partner_admins` | ❌ | ❌ | ❌ | ✅ |
 | Mendaftar akun baru | ❌ (signup dimatikan) | — | — | ✅ (dashboard) |
 
@@ -999,18 +1110,34 @@ mengubah data karena tidak ada di allowlist (AC-20).
 
 ### 9.8 Pengaman lain
 
-- **Sesi:** `@supabase/ssr` menyimpan sesi di cookie. Proteksi halaman memakai `supabase.auth.getClaims()`
-  (memverifikasi tanda tangan JWT), **bukan** `getSession()`.
+- **Sesi:** `@supabase/ssr` menyimpan sesi di cookie. Proteksi halaman memakai `supabase.auth.getUser()`
+  (validasi token ke server Auth; alasan & klasifikasi di §5.2), **bukan** `getSession()`.
 - **Server Actions = endpoint POST publik.** Setiap action memanggil `requirePartner()` sendiri dan tidak
   bergantung pada layout. Next.js membandingkan header Origin/Host untuk Server Actions (perlindungan CSRF
   bawaan).
 - **Respons panel tidak boleh di-cache** (`Cache-Control: private, no-store`). Respons ber-cookie yang
   ter-cache dapat membuat pengguna lain masuk sebagai orang yang salah (peringatan resmi Supabase).
+  Next.js menetapkan header ini untuk respons dinamis (§6); nilainya di build produksi/Vercel belum diuji.
+- **Server Action tidak pernah redirect karena sesi:** hasilnya dikembalikan ke formulir agar isian tetap
+  ada (AC-24). Halaman/layout tetap redirect bila tidak ada sesi.
 - **Rate limit login** memakai batas bawaan Supabase Auth (dapat diatur). CAPTCHA (Turnstile/hCaptcha)
   dan MFA masuk pengembangan berikutnya.
 - **Security headers** (via `next.config.ts`): `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: strict-origin-when-cross-origin`, `frame-ancestors 'none'`/`X-Frame-Options: DENY`,
   `Permissions-Policy` minimal.
+
+### 9.9 Hak akses paket katalog (migrasi #7)
+
+- `revoke all on public.product_packages from public, anon, authenticated` lalu `grant select` ke
+  `anon, authenticated`. **Tidak ada** hak INSERT/UPDATE/DELETE/TRUNCATE dan tidak ada column grant.
+- Policy: `"publik baca paket produk terbit"` (`exists (select 1 from public.products p where p.id = product_id
+  and p.is_published)`, untuk anon & authenticated) dan `"mitra baca semua paket"`
+  (`current_user_is_partner()`). Migrasi gagal bila ada policy lain pada tabel ini.
+- Tulis hanya lewat tiga RPC `security definer` + `set search_path = ''` yang memeriksa
+  `private.is_partner_admin()` **pertama kali**, lalu validasi, lalu satu perintah tulis. Hak EXECUTE hanya
+  untuk `authenticated` (§8.8). Fungsi validasi di schema `private` tanpa hak untuk role API.
+- Diuji di PGlite per role (anon, akun non-mitra, mitra): baca, tulis langsung, RPC, idempotensi tambah,
+  isolasi terhadap stok/harga/waktu konfirmasi, batas, dan constraint sebagai jaring kedua.
 
 ---
 
@@ -1067,7 +1194,14 @@ Spasi ganda di tengah dirapikan menjadi satu. Nama dirender sebagai teks biasa o
 di-*escape*) dan tidak pernah lewat `dangerouslySetInnerHTML` (AC-50). Constraint yang sama ada di
 database (§8.7).
 
-**Login:** email format valid, password wajib. Pesan gagal selalu umum.
+**Paket** (PRD BR-PK8): nama memakai aturan satu baris (spasi tepi dibuang, spasi ganda dirapikan, tolak
+baris baru), 1–60 karakter Unicode. Berat memakai parser stok (`parsePackageWeightInput`) dengan syarat
+> 0 dan maksimal 10.000 kg. Harga total memakai parser harga (`parsePackagePriceInput`) dengan batas
+Rp1.000.000.000 yang **terpisah** dari batas harga per kg. Panjang teks (nama usaha, artikel, paket)
+dihitung per karakter Unicode, sama seperti `char_length` Postgres.
+
+**Login:** email format valid, password wajib. Pesan gagal kredensial selalu umum; gangguan jaringan
+dilaporkan sebagai gangguan (§5.2).
 
 ### 10.3 Pemetaan error → pesan untuk pengguna
 
@@ -1084,6 +1218,20 @@ database (§8.7).
 Aturan klasifikasi: hasil dianggap **pasti** hanya bila (a) permintaan belum dikirim, (b) ada jawaban sukses
 berisi baris tersimpan, atau (c) ada jawaban error terstruktur dari PostgREST/Postgres. Selain itu, hasilnya
 **belum pasti**.
+
+**Implementasi (`src/lib/write/outcome.ts`, diuji `tests/unit/write-outcome.test.ts`):**
+
+- `@supabase/postgrest-js` terpasang **tidak melempar** exception pada koneksi putus, timeout (AbortError),
+  atau respons gateway non-JSON; library mengembalikan `{ error }` dengan `code` kosong. Karena itu
+  klasifikasi membaca objek `error` + status HTTP, dan exception yang dilempar dinormalkan lewat `settle()`
+  ke jalur yang sama. `catch` saja tidak cukup.
+- Tidak semua error berkode pasti: SQLSTATE kelas `08` (koneksi), `57P01`–`57P05` (server dimatikan),
+  `58` (sistem/I/O), dan `XX` (internal) diperlakukan **belum pasti** karena bisa terjadi saat COMMIT.
+  `57014`, `40001`, `40P01` tetap pasti (statement dibatalkan sebelum commit). `PGRST3xx` = sesi/JWT.
+- Error tanpa kode: timeout → belum pasti; HTTP ≥ 500 → belum pasti (gateway); kegagalan transport → belum
+  pasti. Jawaban sukses yang isinya tidak dapat dibaca juga belum pasti (dibaca ulang).
+- Pesan error mentah (`err.message`) tidak pernah ditampilkan ke mitra; hanya dicatat di log server tanpa
+  nilai isian, token, atau cookie.
 
 - Error dicatat di log server (Vercel) dengan kode error dan konteks minimal, **tanpa** password, token,
   atau isi cookie.
@@ -1111,7 +1259,7 @@ Berlaku untuk stok & harga, artikel, dan nama usaha (PRD FR-33, AC-51, AC-52).
    | Hasil baca ulang | Pesan | Isian |
    |---|---|---|
    | `confirmed_at` ≠ baseline **dan** stok/harga = isian | Berhasil (diverifikasi ulang) + nilai & waktu dari hasil baca | Diganti nilai tersimpan |
-   | `confirmed_at` = baseline | "Saat diperiksa, data belum berubah. Silakan tekan Simpan & Konfirmasi lagi." | Tetap |
+   | `confirmed_at` = baseline | **Tetap belum pasti** (19 Nov 2026): "Saat diperiksa, data tersimpan belum berubah. Permintaan Anda mungkin masih diproses atau tidak sampai… Tekan “Periksa ulang”… Bila tetap belum berubah, Anda boleh menyimpan lagi." Satu pembacaan data lama bukan bukti gagal. | Tetap |
    | `confirmed_at` ≠ baseline **dan** stok/harga ≠ isian | Tampilkan nilai yang benar-benar tersimpan + keterangan bahwa data diubah dari tempat lain | Tetap |
    | Baca ulang gagal | "Status penyimpanan belum dapat dipastikan. Periksa koneksi, lalu muat ulang halaman untuk melihat data tersimpan sebelum mencoba lagi." | Tetap |
 
@@ -1124,6 +1272,20 @@ Berlaku untuk stok & harga, artikel, dan nama usaha (PRD FR-33, AC-51, AC-52).
    berhasil tetapi jawabannya hilang, cache nama tidak akan terbersihkan oleh action pertama.
 7. **Log:** catat kategori `uncertain` beserta kode/jenis error dan durasi, tanpa nilai isian, token, atau
    cookie.
+8. **Implementasi (19 Nov 2026):** baseline berupa timestamp **mentah** dari database (ISO, dibandingkan per
+   mikrodetik; string tampilan WIB ditolak sebagai baseline). Form panel memakai state terkontrol + `onSubmit`
+   (bukan `<form action>`) sehingga isian tidak di-reset; panggilan Server Action yang gagal di jaringan
+   menjadi "belum pasti"; tombol "Periksa ulang" mengirim **salinan isian yang dikirim**, bukan isian yang
+   mungkin sudah diubah. Tidak ada pengiriman ulang otomatis. Logika ada di `src/lib/actions/core/*`
+   (dependensi disuntikkan, diuji tanpa jaringan); file `"use server"` hanya menghubungkan Supabase dan
+   revalidasi.
+9. **Pesan stok & harga:** dibandingkan nilai **sebelum** simpan (baseline dari formulir, hanya untuk UX)
+   dengan nilai yang diajukan: berbeda → "Data diperbarui: …", sama → "Data dikonfirmasi ulang (tidak ada
+   perubahan angka): …", belum pernah dikonfirmasi → "Data tersimpan dan dikonfirmasi: …". Pesan memuat stok,
+   harga per kg, dan waktu konfirmasi **dari baris yang dikembalikan database**.
+10. **Paket:** tambah diverifikasi berdasarkan ID permintaan (ada & isi sama → tersimpan; belum ada → tetap
+    belum pasti, menyimpan lagi aman); ubah memakai baseline `updated_at`; hapus terverifikasi bila paket tidak
+    ada lagi.
 
 ### 10.5 Batas wajar yang selaras di server dan database
 
@@ -1181,6 +1343,24 @@ const fmt = new Intl.DateTimeFormat('id-ID', {
 | `products.updated_at` | Perubahan teknis baris produk apa pun (nama, foto, deskripsi, termasuk konfirmasi) | Trigger otomatis | Tidak |
 | `articles.updated_at` | Terakhir artikel diubah | Trigger otomatis | Opsional di detail artikel |
 | `site_settings.updated_at` | Terakhir nama usaha diubah | Trigger otomatis | Tidak |
+| `product_packages.updated_at` | Terakhir paket diubah (metadata paket) | Trigger otomatis | Hanya di panel ("Paket terakhir diubah"). **Bukan** waktu konfirmasi harga paket. |
+
+### 11.4 Perhitungan harga paket dan pembulatan (PRD BR-PK5–BR-PK7)
+
+`src/lib/domain/package-pricing.ts`, diuji `tests/unit/package-pricing.test.ts`:
+
+- Berat diubah ke **perseratus kg** (bilangan bulat) dan semua perkalian/pembagian memakai `BigInt`.
+  - pembanding = `centi × harga_satuan / 100`
+  - penghematan = `(centi × harga_satuan − harga_paket × 100) / 100`
+  - harga efektif = `harga_paket × 100 / centi`
+- Hasil berpecahan rupiah dibulatkan **sekali** di akhir ke rupiah terdekat, setengah ke atas
+  (`floor((2n + d) / 2d)`), dan ditandai "sekitar". Penghematan dihitung dari pembanding tepat, sehingga sama
+  dengan `round(pembanding) − harga_paket`.
+- Contoh: 100 kg × Rp35.000 = Rp3.500.000; paket Rp3.100.000 → hemat Rp400.000, setara Rp31.000/kg.
+  0,5 kg × Rp35.001 = Rp17.500,5 → "sekitar Rp17.501". Rp100.000 ÷ 3 kg → "Setara sekitar Rp33.333/kg".
+- Badge hanya bila penghematan (setelah dibulatkan) > 0 dan harga satuan tersedia.
+- Ketersediaan paket membandingkan berat dengan stok total tercatat (perseratus kg): tidak diketahui,
+  habis, melebihi stok tercatat, atau dalam stok tercatat. Tidak ada pengurangan stok.
 
 Mekanisme yang mencegah waktu konfirmasi berubah karena hal lain (BR-W5, AC-32):
 
@@ -1250,7 +1430,7 @@ penting (FR-07, AC-09).
 
 | Halaman | Strategi | Alasan |
 |---|---|---|
-| `/`, `/produk`, `/produk/[slug]` | Shell statis + bagian produk dinamis | Data produk wajib segar |
+| `/`, `/produk`, `/produk/[slug]` | Shell statis + bagian produk & paket dinamis | Data produk & paket wajib segar: paket dibaca tanpa `'use cache'` (`loadPublishedCatalog` + `connection()`), jadi perubahan paket terlihat setelah reload tanpa invalidasi tag. `revalidatePath` di action paket hanya menyegarkan router cache. |
 | `/artikel`, `/artikel/[slug]` | Dinamis (MVP) | Edit mitra langsung terlihat setelah muat ulang. Paling sederhana dan tanpa bug invalidasi. |
 | `/profil`, `/kontak` | Statis | Info usaha dari file konfigurasi (perubahan lewat redeploy). Nama usaha dari cache bertag (§12.5). |
 | Header, footer, metadata semua halaman publik | Cache bertag `site-settings` | Nama usaha tampil di semua halaman. Lihat §12.5. |
@@ -1380,6 +1560,11 @@ export const site = {
   `frame-ancestors` dan tidak membatasi `frame-src`. Bila CSP nanti diperketat, `https://www.google.com`
   harus diizinkan di `frame-src`.
 
+- **Logo program & klaim usaha (19 Nov 2026):** logo Diktisaintek Berdampak, Ditjen Risbang, dan Mahasiswa
+  Berdampak (ditambahkan di commit `4373729`) **tidak ditampilkan** karena dukungan/kemitraan belum
+  terkonfirmasi tertulis (PRD K16); komponen `program-logos.tsx` dan file `public/images/logos/` disimpan.
+  Kalimat klaim tanpa sumber (kualitas budidaya, ikan hidup/segar, pengiriman, bibit, respons cepat, harga
+  grosir, dll.) dihapus dan diganti placeholder/teks netral dari PRD §1.1 (PRD K17).
 - Komponen `<Placeholder label="Alamat" />` merender penanda yang **jelas tidak asli**, mis. kotak bergaris
   putus-putus bertuliskan "[Alamat belum tersedia]". Tidak ada data realistis palsu (BR-K2).
 - **Artikel** berisi placeholder bertanda `[PLACEHOLDER]` di database (§8.5). Mitra/pengembang
@@ -1418,6 +1603,9 @@ export const site = {
 - Templat pesan di `src/config/whatsapp-messages.ts` (PRD §12.4), dengan variabel `{productName}`,
   `{productUrl}`, dan `{businessName}` (dari `getBusinessName()`, §12.5). Variabel yang kosong dihilangkan dengan rapi. `productUrl` dibentuk
   dari `NEXT_PUBLIC_SITE_URL`.
+- **Pesan paket** (PRD BR-WA7): templat `package_order` / `package_check` / `package_out_of_stock` dengan
+  variabel `{packageName}`, `{packageWeight}`, `{packagePrice}` (harga total yang tertera) dan tautan produk.
+  Pilihan templat mengikuti status stok total terhadap berat paket. Pesan produk umum tetap tanpa angka.
 - Perubahan env var di Vercel baru berlaku setelah **redeploy**. Halaman statis (profil/kontak) membaca nilai
   saat build.
 - Lingkungan *preview* boleh memakai nomor uji milik tim. Nomor itu **tidak boleh** ikut ke lingkungan
@@ -1587,6 +1775,11 @@ Catatan konfigurasi lokal:
 | T-19 | Aksesibilitas | axe tanpa pelanggaran *critical/serious*. Navigasi keyboard penuh di form panel. Pesan hasil simpan terbaca pembaca layar. | AC-43 |
 | T-20 | Indeks | `/mitra/*` `noindex` + tidak di sitemap. `ALLOW_INDEXING=false` → `noindex` global. | AC-44 |
 | T-21 | Logout & sesi | Logout → `/mitra` minta login. Sesi kedaluwarsa saat form terbuka → pesan sesi, data tidak berubah. | AC-23, AC-24 |
+| T-24 | Paket: perhitungan | Unit: 100 kg/Rp3.100.000/Rp35.000 → hemat Rp400.000, setara Rp31.000/kg; harga sama/lebih tinggi → tanpa badge; harga satuan kosong → tanpa pembanding; pembulatan setengah ke atas; berat desimal tepat. | AC-55, AC-56 |
+| T-25 | Paket: akses & isolasi | Uji DB: anon/outsider tidak dapat menulis/RPC; publik hanya paket produk terbit; mitra hanya lewat RPC; tambah idempoten (id sama); CRUD tidak mengubah stok/harga/waktu konfirmasi; ubah harga satuan tidak menimpa harga paket; batas & constraint. | AC-53, AC-54, AC-57, AC-58 |
+| T-26 | Paket: tampilan & WhatsApp | Render: produk gagal → tanpa angka/paket; paket gagal → pesan gangguan; tanpa paket; stok tak diketahui/melebihi/habis; pesan WhatsApp menyebut produk, paket, berat, harga total, tautan. E2E di build produksi: tambah paket → reload katalog. | AC-59, AC-60 |
+| T-27 | Paket: hasil belum pasti | Unit: tambah tanpa paket terlihat tetap belum pasti; terverifikasi bila terbaca; hapus terverifikasi bila sudah tidak ada. | AC-61 |
+| T-28 | 404 slug | Unit: Proxy menjawab 404 untuk slug tak dikenal; daftar slug sama dengan migrasi. Build produksi: status HTTP diperiksa (belum). | T-01 |
 | T-22 | Nama usaha | Unit: validasi nama (kosong, spasi saja, 1 karakter, 81 karakter, baris baru → ditolak). uji DB (`tests/db`): `anon`/outsider tidak bisa UPDATE `site_settings`, mitra hanya bisa UPDATE `business_name`, tidak ada yang bisa INSERT/DELETE. E2E di build produksi **dan** Vercel preview: ganti nama → reload beberapa halaman publik → header, footer, `<title>`, dan `href` WhatsApp memakai nama baru tanpa redeploy. `confirmed_at` produk tetap. Nama berisi `<script>` tampil sebagai teks. Simulasi DB gagal saat cache kosong → nama netral "Ikan Nila", dan nama asli kembali setelah DB pulih. | AC-45–AC-50 |
 
 ---
@@ -1625,10 +1818,11 @@ Catatan konfigurasi lokal:
 | 2 | Fungsi domain murni + unit test terlebih dulu: parser stok/harga, formatter WIB/rupiah/kg, status produk, WhatsApp (normalisasi, tautan, templat), validasi env. | T-02, T-03, T-04, T-16 (unit) lulus. **Selesai secara lokal (18 Nov 2026).** Validasi nama usaha & artikel (BR-P3, BR-A6) menyusul bersama Server Action. |
 | 3 | Migrasi sesuai urutan §8.8 (schema & helper → tabel + RLS → fungsi pemeriksa akses → policy & grant → RPC → konten awal), konvergen terhadap skema v0.3 cloud (§8.9). Uji database tanpa Docker (PGlite). | Migrasi berjalan dari nol dan dari v0.3 tanpa error. T-07, T-09 (DB), T-12 (DB) lulus. **Selesai secara lokal (18 Nov 2026):** 86 uji PGlite lulus. |
 | 4 | Proyek Supabase dev/staging terverifikasi: preflight + dry-run, `db push --remote`, signup mati, akun mitra uji + outsider, `test:db:cloud`, `test:api:cloud`, generate tipe TS. | Uji cloud lulus. **Belum:** peruntukan proyek belum dinyatakan (PRD Q-22). |
-| 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. **Sebagian dikerjakan (18 Nov 2026):** layout publik dan beranda (§6.1) dengan placeholder. Belum ada katalog, detail produk, profil, kontak, artikel, robots/sitemap, dan uji T-xx terkait. |
-| 6 | Autentikasi: klien Supabase, `proxy.ts` (`/mitra/*`), login/logout, `requirePartner()`, halaman akses ditolak. | T-06, T-21 lulus. |
-| 7 | Panel stok & harga: form mobile-first, pratinjau, Server Action → RPC, pesan berhasil/gagal, konfirmasi ulang, dialog harga 0. | T-08–T-13 lulus. |
-| 8 | Panel artikel: daftar, form edit, pratinjau Markdown, Server Action, cek 0 baris. Panel pengaturan: form nama usaha, Server Action + `updateTag`, nama dari `getBusinessName()` di layout/metadata/WhatsApp. | T-14, T-22 lulus. |
+| 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. **Sebagian dikerjakan (18 Nov 2026):** layout publik dan beranda (§6.1) dengan placeholder. **Diperbarui 19 Nov 2026:** semua halaman publik ada (§6.2); T-01 (404 via Proxy), T-05, T-16, T-17, T-20 dicakup unit test; T-15 (build produksi) belum. |
+| 6 | Autentikasi: klien Supabase, `proxy.ts` (`/mitra/*`), login/logout, `requirePartner()`, halaman akses ditolak. | T-06, T-21 lulus. **Kode selesai (19 Nov 2026)** + unit test klasifikasi sesi/allowlist/login. Belum diuji terhadap Supabase Auth cloud. |
+| 7 | Panel stok & harga: form mobile-first, pratinjau, Server Action → RPC, pesan berhasil/gagal, konfirmasi ulang, dialog harga 0. | T-08–T-13 lulus. **Kode selesai** + unit test (pasti/belum pasti, pesan, baseline); uji DB T-09/T-11/T-12 lulus di PGlite. E2E belum. |
+| 8 | Panel artikel: daftar, form edit, pratinjau Markdown, Server Action, cek 0 baris. Panel pengaturan: form nama usaha, Server Action + `updateTag`, nama dari `getBusinessName()` di layout/metadata/WhatsApp. | T-14, T-22 lulus. **Kode selesai** + unit test; T-22 di Vercel belum. |
+| 8a | Paket katalog (PRD §12.8): migrasi #7, RPC, panel `/mitra/paket`, kartu publik, WhatsApp per paket. | T-24–T-27 lulus. **Kode selesai, lulus lokal** (unit + PGlite). Migrasi belum diterapkan ke cloud; E2E belum. |
 | 9 | Pengerasan: security headers, uji responsif & aksesibilitas, Lighthouse. | T-18, T-19 lulus. Target NFR-18 tercapai. |
 | 10 | Vercel: hubungkan repo, env var per lingkungan, region, preview & production di `*.vercel.app` (`noindex`). | Smoke test pasca-deploy lulus, termasuk T-15 di Vercel. |
 | 11 | UAT bersama klien & mitra + panduan singkat 1 halaman untuk mitra. | Klien menyetujui UAT. |
@@ -1696,6 +1890,7 @@ Platform (dicek ulang saat implementasi karena dapat berubah):
 | 0.4 | 18 November 2026 | **(1) Urutan migrasi** disusun menurut ketergantungan (§7, §8.8): fungsi pemeriksa akses dibuat sebelum policy RLS yang memakainya; policy memanggil `public.current_user_is_partner()` sehingga fungsi di schema `private` tidak memerlukan hak apa pun dari role API; setiap fungsi langsung dicabut hak EXECUTE-nya dari `public`/`anon`/`authenticated` lalu diberikan hanya ke role yang perlu (§9.3–§9.5). **(2) Hasil simpan belum pasti** (timeout/koneksi terputus) dibedakan dari penolakan yang pasti dan dibaca ulang dengan baseline (§5.3–§5.6, §10.3, §10.4, T-23, RT16). **(3) Parser harga** memvalidasi format sebelum titik dihapus, sehingga `35.50` ditolak (§10.2). **(4) Batas stok/harga** diselaraskan antara aplikasi, constraint tabel `BETWEEN`, dan RPC; parameter harga RPC menjadi `numeric` agar pecahan ditolak, bukan dibulatkan; NaN/Infinity tertutup (§8.2, §9.5, §10.5, T-09, RT17). **(5) Konfigurasi cache** diverifikasi dari dokumentasi resmi terbundel dan kode sumber Next.js 16.4.6, menggantikan klaim sumber sekunder (§1.1, §12.0); koreksi: `force-dynamic` tidak berlaku bila Cache Components aktif, `staleTimes` berada di `experimental`, header CDN bukan bukti tunggal kesegaran data pada PPR, dan risiko fallback nama usaha tertanam di shell saat build (§12.2, §12.4, §12.5, RT15). **(6)** Normalisasi WhatsApp memvalidasi karakter dulu dan menolak `620…` (§13.2). **(7)** Env: `SUPABASE_PROJECT_REF`, `npm run check:env`, dan catatan environment sistem (§15). **(8)** Status fondasi aplikasi (header, §7, §19). Aturan "stok/harga terbaru tampil setelah reload, termasuk build produksi" dipertahankan. |
 | 0.5 | 18 November 2026 | **Alur tanpa Docker.** Laptop menjalankan Next.js lokal; database & auth memakai Supabase cloud dev/staging yang terpisah dari production; deployment Vercel di tahap berikutnya. Uji database lokal memakai PGlite + shim Supabase, uji cloud memakai `pg` (rollback) dan Data API dengan sesi pengguna (§1.1, §8.8, §16.2, §17.1, §19, Lampiran C). **Rekonsiliasi cloud:** skema v0.3 + 4 versi riwayat tanpa isi SQL ditemukan; migrasi v0.4 dibuat konvergen + 4 file catatan riwayat (§8.9). Terverifikasi read-only: default privileges Supabase, `postgres` BYPASSRLS, definisi `auth.uid()`, signup cloud masih aktif. Catatan CLI 3.2.0: dry-run menyetel role sementara `cli_login_postgres`. Rancangan keamanan dan kebutuhan bisnis tidak berubah. |
 | 0.6 | 18 November 2026 | **Beranda publik** dibuat (§6.1). **Peta Google tertanam** di bagian Lokasi atas permintaan pemilik proyek: menggantikan pernyataan "penyematan peta tidak termasuk MVP" di §13.1; memakai alamat tertulis tanpa API key atau koordinat, tombol Google Maps tetap sebagai fallback, dan konten pihak ketiga Google dicatat. Kebutuhan bisnis lain tidak berubah. |
+| 0.7 | 19 November 2026 | **Paket katalog dikelola mitra** (PRD §12.8): §5.7, §6, §8.8 (#7), §8.10, §9.1, §9.9, §10.2, §11.3, §11.4, §12.3, §13.2, T-24–T-28, §19 langkah 8a. **Perbaikan audit commit `4373729`** (Lampiran D): klasifikasi hasil tulis & pembacaan ulang (§10.3, §10.4), sesi/allowlist tiga keadaan dan alasan `getUser()` (§5.2, §9.8), 404 slug via Proxy dan header cache panel (§6), halaman publik & panel (§6.2), logo/klaim tanpa sumber disembunyikan (§13.1). |
 
 ## Lampiran C — Alur tanpa Docker & rekonsiliasi cloud (18 November 2026)
 
@@ -1713,3 +1908,24 @@ Supabase terpisah dan tidak pernah diubah dari laptop pengembang.
 
 **§17.3 Batasan uji lokal.** PGlite = PostgreSQL 18.6, cloud = 17.12; `postgres` di PGlite superuser.
 Lulus di PGlite membuktikan logika SQL, **bukan** keadaan cloud.
+
+## Lampiran D — Perbaikan temuan audit commit `4373729` (19 November 2026)
+
+Status "selesai" berarti kode + uji lokal (unit/PGlite) lulus. Perilaku cloud, build produksi, dan Vercel
+belum diverifikasi.
+
+| # | Temuan | Perbaikan | Bukti |
+|---|---|---|---|
+| 1 | Hasil belum pasti dilaporkan "tidak berubah" | Klasifikasi objek error + exception, kelas SQLSTATE ambigu, pembacaan ulang dengan baseline mentah, "Periksa ulang" | `write-outcome.test.ts`, `stock-price-action.test.ts`, `article-settings-action.test.ts` |
+| 2 | Harga paket di kode tampil saat DB gagal | `volume-pricing.ts` dihapus; paket dari database (§8.10); produk gagal → tanpa paket | `catalog-render.test.tsx` |
+| 3 | `/produk` & detail tanpa pesan gangguan | Komponen bersama dengan pesan AC-12 | `catalog-render.test.tsx` |
+| 4 | Logo program tanpa konfirmasi | Disembunyikan; aset disimpan (PRD K16) | Pencarian kode: tidak ada pemakaian `ProgramLogos` |
+| 5 | Klaim usaha tanpa sumber | Diganti placeholder/teks PRD §1.1 (PRD K17) | Tinjauan halaman profil/kontak/produk |
+| 6 | Pesan & baseline stok/harga | Pembanding nilai sebelum vs diajukan; baseline ISO mentah | `stock-price-action.test.ts` |
+| 7 | Sesi berakhir menghapus isian; gangguan akses = bukan mitra | Action mengembalikan `session_expired`/`access_check_failed`; form terkontrol | `access-classify.test.ts`, uji action |
+| 8 | Simpan artikel dari Pratinjau kehilangan input | Input selalu di formulir; ringkasan error terlihat dari tab aktif | `panel-forms.test.tsx` |
+| 9 | Artikel bukan Markdown | `react-markdown@10.1.0` tanpa `rehype-raw`, elemen dasar saja | `panel-forms.test.tsx` (HTML tampil sebagai teks, `javascript:` dibuang) |
+| 10 | 404 saat streaming | Proxy menjawab 404 untuk slug tak dikenal (dokumentasi Next.js 16.4.6) | `routing-404.test.ts`; status di build produksi **belum diverifikasi** |
+| 11 | Header cache panel | Diverifikasi dari dokumentasi: dinamis → `private, no-store`; tidak ada header tambahan | **Belum diverifikasi** di build produksi |
+| 12 | Panel mencampur gagal muat & kosong | Hasil `ok/not_found/error`; formulir disembunyikan saat gagal; nama usaha tanpa fallback | `panel-forms.test.tsx` |
+| 13 | Merek, sitemap, keterangan peta, fungsi sesi, whitespace, dokumen | "PasarNila" dihapus dari teks UI; sitemap tanpa localhost; `MapEmbed` bersama; `getUser()` didokumentasikan (§5.2); EOF bersih; dokumen diperbarui | `routing-404.test.ts`, `git diff --check` |

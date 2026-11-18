@@ -48,16 +48,27 @@ export function getWhatsAppDisplayNumber(): string | null {
   return formatWhatsAppNumberForDisplay(getWhatsAppConfig());
 }
 
-export function getVolumeOrderWhatsAppHref(
-  kg: number,
-  productName: string,
-  slug: string = PRIMARY_PRODUCT_SLUG,
-): string | null {
+/**
+ * Tautan WhatsApp untuk satu paket (PRD BR-WA7). Kalimat mengikuti status stok total bersama: stok habis
+ * → menanyakan kapan tersedia; stok tidak diketahui/kurang dari berat paket → menanyakan kecukupan stok.
+ * Klik tidak mencatat pesanan dan tidak mengubah stok (AC-15).
+ */
+export function getPackageWhatsAppHref(input: {
+  kind: Extract<WhatsAppMessageKind, "package_order" | "package_check" | "package_out_of_stock">;
+  productName: string;
+  packageName: string;
+  packageWeightLabel: string;
+  packagePriceLabel: string;
+  slug?: string;
+}): string | null {
   return buildWhatsAppUrl(
     getWhatsAppConfig(),
-    buildWhatsAppMessage("product_available", {
-      productName: `${kg} kg ${productName}`,
-      productUrl: buildProductUrl(getSiteUrl(), slug),
+    buildWhatsAppMessage(input.kind, {
+      productName: input.productName,
+      packageName: input.packageName,
+      packageWeight: input.packageWeightLabel,
+      packagePrice: input.packagePriceLabel,
+      productUrl: buildProductUrl(getSiteUrl(), input.slug ?? PRIMARY_PRODUCT_SLUG),
     }),
   );
 }

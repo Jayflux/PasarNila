@@ -1,85 +1,63 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { requirePartner } from "@/lib/auth/require-partner";
+import {
+  recheckBusinessName,
+  refreshBusinessNameCache,
+  saveBusinessName,
+  type BusinessNameDb,
+  type BusinessNameDeps,
+  type BusinessNameResult,
+} from "@/lib/actions/core/site-settings";
+import { supabaseGate, verifyReadSignal, wait, writeSignal } from "@/lib/actions/core/supabase-gate";
 import { SITE_SETTINGS_TAG } from "@/lib/data/site-settings";
-import { createServerSupabaseClient } from "@/lib/supabase/server-client";
+import type { ActionResult } from "@/lib/write/action-result";
+import { settle } from "@/lib/write/outcome";
 
-export type SiteSettingsActionResult = {
-  ok: boolean;
-  message?: string;
-  fieldError?: string;
-  savedName?: string;
-};
+/** Server Action nama usaha (PRD BR-P3, AC-45–AC-50, AC-52; ARCHITECTURE.md §5.6, §12.5). */
 
-/**
- * Server Action untuk memperbarui nama usaha mitra (PRD BR-P3, FR-16, AC-47; ARCHITECTURE §5.6, §12.5).
- */
-export async function updateBusinessNameAction(
-  _prevState: SiteSettingsActionResult | null,
-  formData: FormData,
-): Promise<SiteSettingsActionResult> {
-  await requirePartner();
+const COLUMNS = "business_name, updated_at";
 
-  const rawName = (formData.get("businessName") as string | null) ?? "";
-  const trimmedName = rawName.replace(/\s+/g, " ").trim();
+function businessNameDb(supabase: SupabaseClient): BusinessNameDb {
+  return {
+    update: (name) =>
+      settle(() =>
+        supabase
+          .from("site_settings")
+          .update({ business_name: name })
+          .eq("id", true)
+          .select(COLUMNS)
+          .abortSignal(writeSignal()),
+      ),
+    read: () =>
+      settle(() =>
+        supabase.from("site_settings").select(COLUMNS).eq("id", true).abortSignal(verifyReadSignal()).maybeSingle(),
+      ),
+  };
+}
 
-  // Validasi batas dan format (PRD BR-P3, A-20; ARCHITECTURE §10.2)
-  if (trimmedName.length < 2 || trimmedName.length > 80) {
-    return {
-      ok: false,
-      fieldError: "Nama usaha harus terdiri dari 2 hingga 80 karakter.",
-    };
-  }
+function deps(): BusinessNameDeps {
+  return {
+    gate: supabaseGate(businessNameDb),
+    wait,
+    invalidate: () => {
+      // `updateTag` hanya dapat dipanggil di Server Action: langsung meng-expire tag (§12.0).
+      updateTag(SITE_SETTINGS_TAG);
+      revalidatePath("/", "layout");
+    },
+  };
+}
 
-  if (/[\r\n]/.test(rawName)) {
-    return {
-      ok: false,
-      fieldError: "Nama usaha tidak boleh memuat baris baru.",
-    };
-  }
+export async function updateBusinessNameAction(formData: FormData): Promise<BusinessNameResult> {
+  return saveBusinessName(formData, deps());
+}
 
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
-      .from("site_settings")
-      .update({
-        business_name: trimmedName,
-      })
-      .eq("id", true)
-      .select("business_name, updated_at");
+export async function recheckBusinessNameAction(formData: FormData): Promise<BusinessNameResult> {
+  return recheckBusinessName(formData, deps());
+}
 
-    if (error) {
-      return {
-        ok: false,
-        message: "Gagal menyimpan nama usaha. Terjadi kesalahan database.",
-      };
-    }
-
-    if (!data || data.length === 0) {
-      return {
-        ok: false,
-        message: "Gagal menyimpan. Anda tidak memiliki izin untuk mengubah pengaturan.",
-      };
-    }
-
-    // Invalidasi cache nama usaha instan dengan updateTag (ARCHITECTURE §12.5)
-    updateTag(SITE_SETTINGS_TAG);
-    revalidatePath("/", "layout");
-
-    return {
-      ok: true,
-      message: `Nama usaha berhasil diperbarui menjadi "${trimmedName}".`,
-      savedName: trimmedName,
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error
-          ? `Gagal menyimpan: ${err.message}`
-          : "Gagal menyimpan nama usaha. Silakan coba lagi.",
-    };
-  }
+export async function refreshBusinessNameCacheAction(): Promise<ActionResult> {
+  return refreshBusinessNameCache(deps());
 }

@@ -1,10 +1,10 @@
+import { MapEmbed } from "@/components/publik/map-embed";
 import { Placeholder } from "@/components/publik/placeholder";
 import { SectionHeading } from "@/components/publik/section-heading";
 import { buttonClass } from "@/components/ui/button-styles";
 import { ExternalIcon, PinIcon } from "@/components/ui/icons";
 import { HOME_SECTIONS } from "@/config/navigation";
 import { site } from "@/config/site";
-import { buildMapEmbedUrl } from "@/lib/maps";
 
 /**
  * Lokasi usaha (PRD §1.1: alamat & tautan peta dikonfirmasi klien).
@@ -50,24 +50,7 @@ export function LocationSection() {
           ) : null}
         </div>
 
-        {address ? (
-          <figure>
-            <div className="overflow-hidden rounded-[1.75rem] border border-line bg-neutral-soft shadow-sm">
-              <iframe
-                src={buildMapEmbedUrl(address)}
-                title={`Peta Google Maps untuk alamat: ${address}`}
-                loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-                className="block aspect-[4/3] w-full border-0 md:aspect-[16/11]"
-              />
-            </div>
-            <figcaption className="mt-3 text-sm leading-6 text-ink-muted">
-              Peta mencari alamat tertulis dan bisa kurang tepat. Untuk titik lokasi yang sudah
-              dikonfirmasi, gunakan tombol &ldquo;Buka di Google Maps&rdquo;.
-            </figcaption>
-          </figure>
-        ) : null}
+        {address ? <MapEmbed address={address} /> : null}
       </div>
     </section>
   );

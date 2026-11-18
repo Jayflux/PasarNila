@@ -86,6 +86,9 @@ export type WhatsAppMessageValues = {
   businessName?: string | null;
   productName?: string | null;
   productUrl?: string | null;
+  packageName?: string | null;
+  packageWeight?: string | null;
+  packagePrice?: string | null;
 };
 
 function normalizeValue(value: string | null | undefined): string {
@@ -103,7 +106,7 @@ export function buildWhatsAppMessage(
 ): string {
   const template = templates[kind];
   const filled = template.replace(
-    /(\s*)\{(businessName|productName|productUrl)\}/g,
+    /(\s*)\{(businessName|productName|productUrl|packageName|packageWeight|packagePrice)\}/g,
     (_match, leadingSpace: string, key: keyof WhatsAppMessageValues) => {
       const value = normalizeValue(values[key]);
       return value === "" ? "" : `${leadingSpace}${value}`;

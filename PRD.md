@@ -2,8 +2,8 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.6 (draf untuk ditinjau) |
-| Tanggal | 18 November 2026 |
+| Versi dokumen | 0.7 (draf untuk ditinjau) |
+| Tanggal | 19 November 2026 |
 | Status | Menunggu tinjauan dan persetujuan klien |
 | Dokumen terkait | [`ARCHITECTURE.md`](./ARCHITECTURE.md) (arsitektur teknis) |
 | Nama usaha | **Juki Fish Farm** (nama awal, dapat diganti mitra dari panel, lihat §1.1 dan §12.7) |
@@ -36,8 +36,8 @@ harga diperbarui**, membaca artikel, lalu menghubungi usaha melalui **WhatsApp**
 terisi. Pemesanan dan kesepakatan transaksi tetap dilakukan di WhatsApp. **[Dikonfirmasi]**
 
 Satu **mitra** memiliki satu akun untuk masuk ke **panel mitra**. Di panel itu mitra memperbarui stok dan
-harga secara manual, mengonfirmasi ulang data yang tidak berubah, mengedit dua artikel yang sudah
-disediakan, dan mengganti nama usaha. **[Dikonfirmasi]**
+harga secara manual, mengonfirmasi ulang data yang tidak berubah, mengelola pilihan paket katalog
+(§12.8), mengedit dua artikel yang sudah disediakan, dan mengganti nama usaha. **[Dikonfirmasi]**
 
 Website ini **bukan toko online**: tidak ada keranjang, checkout, pembayaran, atau akun pembeli.
 
@@ -160,7 +160,8 @@ Kebanyakan diperkirakan membuka website dari HP.
 ### 5.1 Halaman publik
 
 1. Beranda / landing page.
-2. Katalog atau bagian produk ikan nila. Berisi satu produk: ikan nila **[Dikonfirmasi, §1.1]**.
+2. Katalog atau bagian produk ikan nila. Berisi satu produk: ikan nila **[Dikonfirmasi, §1.1]**, dengan
+   pilihan paket (nama, berat, harga total) yang dikelola mitra **[Dikonfirmasi, 19 Nov 2026, §12.8]**.
 3. Profil usaha: nama dan lokasi sudah tersedia. Sejarah/gambaran dan foto berupa placeholder sampai
    bahan tersedia.
 4. Daftar artikel dan detail artikel (dua artikel).
@@ -178,6 +179,7 @@ Kebanyakan diperkirakan membuka website dari HP.
 7. Mengedit judul dan isi dua artikel yang sudah disediakan.
 8. Mengganti nama usaha (§12.7).
 9. Logout.
+10. Mengelola pilihan paket katalog: menambah, mengubah nama/berat/harga total, dan menghapus paket (§12.8).
 
 ### 5.3 Tombol WhatsApp
 
@@ -229,8 +231,8 @@ URL di bawah adalah usulan. Detail route ada di `ARCHITECTURE.md` §6.
 | Halaman | URL usulan | Akses | Fungsi utama | Konten placeholder |
 |---|---|---|---|---|
 | Beranda | `/` | Publik | Perkenalan usaha, ringkasan produk (stok, harga, waktu pembaruan), cuplikan profil, artikel, lokasi (alamat, peta Google tertanam, tombol Google Maps), ajakan WhatsApp. | Tagline, foto, deskripsi singkat. (Nama usaha sudah tersedia.) |
-| Katalog produk | `/produk` | Publik | Daftar produk aktif. Untuk MVP satu produk "Ikan Nila", disertai stok, harga, waktu pembaruan, dan tombol WhatsApp. | Foto & deskripsi produk. |
-| Detail produk | `/produk/ikan-nila` | Publik | Informasi lengkap produk, status stok, harga/kg, waktu pembaruan, keterangan arti waktu, tombol WhatsApp. | Foto & deskripsi produk. |
+| Katalog produk | `/produk` | Publik | Daftar produk aktif. Untuk MVP satu produk "Ikan Nila", disertai stok, harga, waktu pembaruan, ringkasan pilihan paket, dan tombol WhatsApp. | Foto & deskripsi produk. |
+| Detail produk | `/produk/ikan-nila` | Publik | Informasi lengkap produk, status stok, harga/kg, waktu pembaruan, keterangan arti waktu, kartu pilihan paket (§12.8) dengan tombol WhatsApp per paket. | Foto & deskripsi produk. |
 | Profil usaha | `/profil` | Publik | Nama usaha, lokasi, sejarah dan gambaran usaha. | Sejarah & gambaran usaha, foto usaha. (Nama & lokasi sudah tersedia.) |
 | Daftar artikel | `/artikel` | Publik | Daftar dua artikel (judul, cuplikan). | Judul & isi artikel. |
 | Detail artikel | `/artikel/[slug]` | Publik | Isi lengkap artikel. | Judul & isi artikel. |
@@ -240,6 +242,7 @@ URL di bawah adalah usulan. Detail route ada di `ARCHITECTURE.md` §6.
 | Panel: daftar artikel | `/mitra/artikel` | Mitra | Daftar dua artikel yang bisa diedit. | — |
 | Panel: edit artikel | `/mitra/artikel/[slug]` | Mitra | Edit judul & isi, pratinjau, simpan. | — |
 | Panel: pengaturan usaha | `/mitra/pengaturan` | Mitra | Melihat dan mengganti nama usaha, simpan. | — |
+| Panel: paket katalog | `/mitra/paket` | Mitra | Daftar paket, tambah, ubah nama/berat/harga total, hapus dengan konfirmasi, pratinjau harga efektif & badge Hemat. | — |
 | Halaman tidak ditemukan | (otomatis) | Publik | Pesan 404 yang ramah dan tautan kembali. | — |
 
 Tombol logout tersedia di header panel, bukan sebagai halaman tersendiri.
@@ -447,7 +450,11 @@ flowchart TD
 | FR-30 | Halaman panel tidak diindeks mesin pencari. Seluruh situs `noindex` sampai konten asli siap. | Must | Saran (A-17) | AC-44 |
 | FR-31 | Panel menyediakan halaman pengaturan untuk melihat dan mengganti nama usaha. Hanya mitra yang diizinkan yang dapat menyimpan, dan pembatasan ini ditegakkan di database. | Must | Dikonfirmasi (Q-21) | AC-45–AC-48 |
 | FR-32 | Nama usaha yang tampil di seluruh website (header, footer, judul halaman, gambar bagikan, pesan WhatsApp) diambil dari pengaturan dan berubah setelah disimpan, paling lambat saat halaman dimuat ulang, tanpa redeploy. | Must | Dikonfirmasi (Q-21) | AC-46, AC-49 |
-| FR-33 | Hasil penyimpanan yang **belum pasti** (batas waktu habis, koneksi terputus, jawaban tidak lengkap) dibedakan dari penolakan yang pasti. Untuk hasil belum pasti, panel tidak mengklaim berhasil maupun "data tidak berubah", lalu membaca ulang data tersimpan untuk menentukan hasilnya. Berlaku untuk stok & harga, artikel, dan nama usaha. | Must | Saran (turunan US-17, FR-22) | AC-51, AC-52 |
+| FR-33 | Hasil penyimpanan yang **belum pasti** (batas waktu habis, koneksi terputus, jawaban tidak lengkap) dibedakan dari penolakan yang pasti. Untuk hasil belum pasti, panel tidak mengklaim berhasil maupun "data tidak berubah", lalu membaca ulang data tersimpan untuk menentukan hasilnya. Satu pembacaan yang masih menunjukkan data lama **bukan** bukti gagal: status tetap belum pasti dan tersedia tombol "Periksa ulang". Berlaku untuk stok & harga, artikel, nama usaha, dan paket. | Must | Saran (turunan US-17, FR-22) | AC-51, AC-52, AC-61 |
+| FR-34 | Panel menyediakan halaman paket katalog: daftar, tambah, ubah (nama, berat, harga total), dan hapus paket dengan konfirmasi yang menyebut paket. Hanya mitra yang diizinkan yang dapat menulis; ditegakkan di database. | Must | Dikonfirmasi (19 Nov 2026) | AC-53, AC-54, AC-58 |
+| FR-35 | Beranda, katalog, dan detail produk menampilkan paket dari satu sumber data tersimpan: harga total, harga efektif/kg, badge "Hemat Rp…" bila berlaku, dan tombol WhatsApp per paket (detail produk). | Must | Dikonfirmasi (19 Nov 2026) | AC-55, AC-56, AC-59, AC-60 |
+| FR-36 | Paket memakai stok total produk bersama; CRUD paket dan klik WhatsApp tidak mengubah stok, harga satuan, atau waktu konfirmasi. | Must | Dikonfirmasi / A-21 | AC-57 |
+| FR-37 | Sesi yang berakhir saat formulir panel dikirim menghasilkan pesan sesi dengan isian tetap ada; gangguan pemeriksaan akses dibedakan dari "bukan mitra". | Must | Saran (turunan AC-24) | AC-24 |
 
 ---
 
@@ -556,9 +563,10 @@ Tanggal pada contoh di atas hanya ilustrasi format.
 | BR-WA1 | Tombol membuka WhatsApp dengan pesan terisi. Pengguna tetap harus menekan kirim sendiri. | Dikonfirmasi |
 | BR-WA2 | Pesan dapat menyebutkan nama produk dan tautan halaman produk. | Dikonfirmasi |
 | BR-WA3 | Jika nomor belum dikonfigurasi atau formatnya tidak valid, tombol **nonaktif**, bertuliskan "Nomor WhatsApp belum tersedia", dan **tidak** memiliki tautan ke nomor mana pun. Tidak ada nomor cadangan/contoh. | Dikonfirmasi |
-| BR-WA4 | Pesan terisi **tidak** mencantumkan angka stok/harga. Angka bisa sudah berubah dan memicu salah paham. | Asumsi A-14 |
+| BR-WA4 | Pesan terisi **tidak** mencantumkan angka stok. Pesan produk umum juga tidak mencantumkan harga per kg. Angka bisa sudah berubah dan memicu salah paham. Pengecualian: pesan paket (BR-WA7). | Asumsi A-14 |
 | BR-WA5 | Nomor WhatsApp diatur oleh pengembang melalui konfigurasi (bukan dari panel di MVP). Nomor production: **`6281575723540`** (+62 815-7572-3540), satu nomor untuk semua pertanyaan dan pesanan. | Dikonfirmasi (nomor) / Asumsi A-13 (cara konfigurasi) |
 | BR-WA6 | Tombol tetap aktif saat stok habis atau belum tersedia, dengan pesan yang sesuai kondisi. | Dikonfirmasi |
+| BR-WA7 | Tombol WhatsApp pada kartu paket menyebut produk, nama paket, berat, **harga total paket** yang tertera di website, dan tautan produk. Kalimatnya mengikuti status stok total: stok tercatat cukup → bertanya/memesan; stok belum diisi atau kurang dari berat paket → menanyakan kecukupan stok; stok habis → menanyakan kapan tersedia. Klik tidak mencatat pesanan dan tidak mengubah stok. | Dikonfirmasi (19 Nov 2026) |
 
 Usulan isi pesan terisi **[Saran, menunggu Q-08]**:
 
@@ -603,6 +611,24 @@ mengganti nama (§12.7).
 | BR-P5 | Mengganti nama **tidak** mengubah waktu konfirmasi stok & harga, URL halaman, maupun isi artikel. Nama lama yang tertulis di dalam isi artikel tidak ikut diganti otomatis. Mitra mengeditnya sendiri bila perlu. | Dikonfirmasi / Saran |
 | BR-P6 | Bila pengaturan tidak dapat dimuat dan belum ada salinan tersimpan, website menampilkan nama netral **"Ikan Nila"**, bukan nama usaha yang mungkin sudah diganti. Kejadian ini dicatat di log. | Saran |
 | BR-P7 | Di MVP, hanya **nama usaha** yang dapat diubah mitra. Info usaha lain tetap diubah pengembang (A-18). | Dikonfirmasi |
+
+### 12.8 Paket katalog (dikelola mitra)
+
+| ID | Aturan | Status |
+|---|---|---|
+| BR-PK1 | Produk tetap satu: Ikan Nila. Mitra dapat menambah, mengubah (nama, berat, harga total), dan menghapus pilihan paket dari panel (`/mitra/paket`). | Dikonfirmasi (19 Nov 2026) |
+| BR-PK2 | Stok dicatat sebagai **satu stok total** produk dalam kg yang dipakai bersama oleh semua paket. Paket tidak memiliki stok sendiri. | Asumsi A-21 |
+| BR-PK3 | Menambah, mengubah, atau menghapus paket, serta menekan tombol WhatsApp, **tidak** mengurangi atau menyisihkan stok. Stok tetap diubah manual lewat "Simpan & Konfirmasi". CRUD paket tidak mengubah stok, harga satuan, maupun waktu konfirmasi (BR-W5). | Dikonfirmasi |
+| BR-PK4 | Harga satuan per kg tetap dikelola di produk (§12.2). Harga total setiap paket ditentukan bebas oleh mitra: boleh lebih rendah, sama, atau lebih tinggi daripada berat × harga satuan. Mengubah berat atau harga satuan **tidak** menimpa harga total paket yang sudah diisi; perubahan harga satuan hanya memperbarui pembanding dan penghematan yang dihitung. | Dikonfirmasi |
+| BR-PK5 | **Nilai pembanding** = berat paket × harga satuan per kg **saat ini**. **Penghematan** = nilai pembanding − harga total paket. **Harga efektif/kg** = harga total paket ÷ berat paket. Ketiganya dihitung saat ditampilkan dan tidak disimpan. | Dikonfirmasi |
+| BR-PK6 | Badge kuning **"Hemat Rp…"** (label di dalam kartu, bukan modal) hanya tampil bila penghematan > 0 dan harga satuan tersedia. Harga paket sama atau lebih tinggi: tanpa badge. Harga satuan belum tersedia: harga paket dan harga efektif tetap tampil, tetapi pembanding dan badge tidak. Tidak ada persentase diskon. Kartu menjelaskan bahwa pembanding memakai harga satuan per kg saat ini. | Dikonfirmasi |
+| BR-PK7 | **Pembulatan:** harga dalam rupiah bulat; berat maksimal 2 desimal; perhitungan memakai bilangan bulat berskala (tepat, tanpa galat desimal). Hasil yang mengandung pecahan rupiah dibulatkan **sekali** pada hasil akhir ke rupiah terdekat, setengah ke atas, dan diberi kata "sekitar" (mis. "Setara sekitar Rp33.333/kg", "Hemat sekitar Rp501"). | Dikonfirmasi (aturan) |
+| BR-PK8 | **Validasi:** nama wajib 1–60 karakter (spasi tepi dibuang, spasi ganda dirapikan, tanpa baris baru); berat > 0 sampai 10.000 kg dengan maksimal 2 desimal; harga total rupiah bulat Rp0–Rp1.000.000.000. Batas harga total terpisah dari batas harga per kg dan tidak diturunkan dari perkalian. Format input sama dengan BR-S10 dan BR-H8; notasi ilmiah, `NaN`, dan `Infinity` ditolak. Harga Rp0 meminta konfirmasi tambahan (seperti AC-34). Aturan yang sama ditegakkan di browser, server, dan database. | Asumsi A-22 |
+| BR-PK9 | Ketersediaan per paket terhadap stok total tercatat: stok belum diisi → ketersediaan perlu dikonfirmasi; berat paket melebihi stok tercatat → "melebihi stok tercatat, perlu dikonfirmasi"; stok 0 → "stok tercatat sedang habis". Website tidak menjanjikan paket tersedia, dan tombol WhatsApp tetap dapat dipakai. | Dikonfirmasi |
+| BR-PK10 | Urutan kartu konsisten: berat, lalu harga total, lalu waktu dibuat. Tidak ada pengurutan manual. | Saran |
+| BR-PK11 | **Tidak ada paket awal.** Contoh paket dan harga yang pernah ditulis di kode (1/10/20 kg) bukan data klien yang disetujui. Katalog menampilkan "Belum ada pilihan paket" dan jalur bertanya lewat WhatsApp sampai mitra menambah paket. | Dikonfirmasi |
+| BR-PK12 | Waktu perubahan paket (metadata paket) hanya ditampilkan di panel sebagai "Paket terakhir diubah". Waktu konfirmasi stok & harga tidak dipakai sebagai waktu harga paket. | Saran |
+| BR-PK13 | Bila data produk gagal dimuat, harga paket tidak ditampilkan. Bila daftar paket gagal dimuat, tampil pesan gangguan tanpa harga cadangan. | Dikonfirmasi |
 
 ---
 
@@ -709,6 +735,21 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | WhatsApp | Dikonfigurasi → tautan berfungsi | Belum dikonfigurasi → tombol nonaktif, tanpa tautan | AC-13, AC-14 |
 | Hak akses | Mitra diizinkan → bisa mengubah | Tanpa login / akun tidak diizinkan / API langsung → ditolak | AC-17, AC-19–AC-21 |
 | Artikel | Edit artikel yang ada → diizinkan | Tambah/hapus artikel → di luar MVP, ditolak | AC-37, AC-39 |
+| Paket | Harga paket < pembanding → badge "Hemat Rp…" | Harga sama/lebih tinggi, atau harga satuan belum ada → tanpa badge | AC-55, AC-56 |
+
+### 13.9 Paket katalog
+
+| ID | Kriteria |
+|---|---|
+| AC-53 | **Menambah paket.** Ketika mitra mengisi nama "Paket Hemat", berat `100`, dan harga `3.100.000` lalu menekan Tambah, maka muncul pesan berhasil yang menyebut paket, dan paket tampil di katalog setelah halaman dimuat ulang. Mengirim ulang permintaan yang sama (mis. setelah hasil belum pasti) **tidak** membuat paket ganda. |
+| AC-54 | **Mengubah & menghapus paket.** Mitra dapat mengubah nama, berat, dan harga total paket. Menghapus meminta konfirmasi yang menyebut nama, berat, dan harga paket; setelah dihapus paket tidak tampil di katalog. |
+| AC-55 | **Perhitungan.** Diberikan harga satuan Rp35.000/kg dan paket 100 kg seharga Rp3.100.000. Ketika katalog dibuka, maka kartu menampilkan harga utama "Rp3.100.000", "Setara Rp31.000/kg", badge kuning "Hemat Rp400.000", dan penjelasan bahwa pembanding memakai harga satuan saat ini (100 kg × Rp35.000 / kg = Rp3.500.000). |
+| AC-56 | **Tanpa badge.** Harga paket sama atau lebih tinggi dari pembanding → tanpa badge. Harga satuan belum tersedia → harga paket dan harga efektif tampil, pembanding dan badge tidak. Hasil berpecahan rupiah memakai label "sekitar". |
+| AC-57 | **Isolasi.** Diberikan stok, harga satuan, dan waktu konfirmasi T1. Ketika mitra menambah, mengubah, atau menghapus paket, maka ketiganya tidak berubah. Ketika mitra mengubah harga satuan, harga total paket tidak berubah. |
+| AC-58 | **Hak akses paket.** Pengunjung, akun yang tidak diizinkan, dan panggilan API langsung tidak dapat menambah, mengubah, atau menghapus paket. Pengunjung hanya dapat membaca paket milik produk yang terbit. Mitra pun tidak dapat menulis tabel paket secara langsung, hanya lewat fungsi database. |
+| AC-59 | **Keadaan katalog.** Tanpa paket → "Belum ada pilihan paket" + jalur WhatsApp. Paket gagal dimuat → pesan gangguan tanpa harga cadangan. Produk gagal dimuat → pesan gangguan, tanpa stok, harga, maupun paket. Stok belum diisi atau berat paket melebihi stok tercatat → keterangan "perlu dikonfirmasi". Stok habis → tombol bertanya, bukan pesan yang mengklaim tersedia. |
+| AC-60 | **WhatsApp paket.** Pesan terisi menyebut produk, nama paket, berat, harga total paket, dan tautan produk yang valid, dengan kalimat sesuai status stok (BR-WA7). Klik tidak mengubah stok. Bila nomor belum dikonfigurasi, tombol nonaktif tanpa tautan (AC-14). |
+| AC-61 | **Hasil belum pasti pada paket.** Seperti AC-51/AC-52: panel tidak mengklaim berhasil maupun "tidak berubah", membaca ulang data tersimpan, dan menyediakan "Periksa ulang". Isian formulir tetap ada. |
 
 ---
 
@@ -736,6 +777,8 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | A-18 | Informasi usaha **selain nama** (profil, alamat, tautan peta, jam operasional) disimpan di file konfigurasi dan diubah oleh pengembang (lalu redeploy). **Nama usaha** disimpan di tabel pengaturan dan diubah mitra dari panel (Q-21, §12.7). | Sedang bila info lain juga perlu diubah mitra: tambah kolom pengaturan + formulir. |
 | A-19 | Database ditempatkan di region terdekat dengan Indonesia (Singapura). Catatan 18 Nov 2026: proyek Supabase cloud yang sudah ada berada di `ap-northeast-1` (Tokyo); lihat Q-22. | Kecil untuk dev/staging; untuk production memengaruhi latensi. |
 | A-20 | Panjang nama usaha 2–80 karakter, tanpa baris baru. | Kecil: ubah batas validasi. |
+| A-21 | **Stok total bersama:** satu angka stok (kg) per produk dipakai oleh semua pilihan paket; paket tidak memiliki stok sendiri dan tidak menyisihkan stok (§12.8). | Sedang: stok per paket memerlukan kolom/tabel tambahan dan aturan sinkronisasi. |
+| A-22 | Batas paket: nama ≤ 60 karakter, berat 0,01–10.000 kg, harga total Rp0–Rp1.000.000.000 (menangkap salah ketik). | Kecil: konstanta aplikasi + migrasi constraint/fungsi, diubah bersamaan. |
 
 ---
 
@@ -821,6 +864,9 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | K13 | Preferensi warna/gaya, opsional | Contoh/warna | Desain | Belum tersedia |
 | K14 | Tautan media sosial, opsional | URL | Footer | Belum tersedia |
 | K15 | Data awal stok & harga | Diisi sendiri oleh mitra lewat panel saat UAT | Produk | Harga dari klien: Rp32.000/kg (BR-H9). Stok diisi mitra. |
+| K16 | Konfirmasi tertulis dukungan/kemitraan program (Diktisaintek Berdampak, Ditjen Risbang, Mahasiswa Berdampak) + izin memakai logonya | Surat/email dari pemilik program atau klien | Header/footer (bila disetujui) | **Menunggu.** Logo tidak ditampilkan; file aset disimpan di `public/images/logos/`. |
+| K17 | Sumber klaim usaha (mis. kualitas/cara budidaya, ikan hidup/segar, layanan pengiriman, jual bibit, wilayah layanan, respons cepat, harga grosir, ditimbang transparan) | Teks dari klien | Profil, kontak, produk | **Menunggu.** Klaim tanpa sumber dihapus dan diganti placeholder/teks netral (BR-K2). |
+| K18 | Daftar paket awal (nama, berat, harga total) | Diisi mitra lewat panel | Katalog | **Menunggu.** Tidak ada paket awal di database (BR-PK11). |
 
 ---
 
@@ -870,3 +916,4 @@ keputusan Q-10.
 | 0.4 | 18 November 2026 | Perbaikan konsistensi, tanpa mengubah kebutuhan bisnis yang dikonfirmasi. **(1)** Hasil simpan dibedakan: pasti ditolak vs belum pasti (timeout/koneksi terputus). Pesan "Data sebelumnya tidak berubah" hanya untuk penolakan yang pasti; hasil belum pasti dibaca ulang (alur §9.2, FR-33, AC-29 diperjelas, AC-41/AC-49 diperjelas, AC-51–AC-52 baru, matriks §13.8). **(2)** Parser angka diperjelas: format diperiksa sebelum titik dihapus, sehingga `35.50` ditolak dan tidak menjadi `3550` (BR-H8, BR-S10, AC-28). Awalan `Rp.` diterima. **(3)** Batas wajar stok/harga ditegakkan sama di server dan database/fungsi simpan, termasuk untuk panggilan API langsung (BR-S9, BR-H7, A-07, AC-28). |
 | 0.5 | 18 November 2026 | Alur pengembangan tanpa Docker: aplikasi lokal + Supabase cloud development/staging yang terpisah dari production; deployment Vercel di tahap berikutnya (§16.2, §18 fase 2). Q-22 ditambahkan (peruntukan dan region proyek cloud yang sudah ada); catatan region pada A-19. Kebutuhan bisnis tidak berubah. |
 | 0.6 | 18 November 2026 | Beranda publik dibuat dengan konten placeholder. Peta Google tertanam di bagian lokasi atas permintaan pemilik proyek (§1.1, §7, NFR-26); tombol Google Maps tetap tersedia. Kebutuhan bisnis dan pertanyaan terbuka lainnya tidak berubah. |
+| 0.7 | 19 November 2026 | **Paket katalog dikelola mitra** (keputusan baru): §5.1, §5.2 butir 10, §7, FR-34–FR-37, §12.8 (BR-PK1–BR-PK13), BR-WA4 diperjelas + BR-WA7, AC-53–AC-61 (§13.9), A-21 (stok total bersama), A-22 (batas paket), K16–K18. Perbaikan hasil audit commit `4373729`: hasil simpan belum pasti tidak lagi dilaporkan "tidak berubah" (FR-33 diperjelas), sesi berakhir mempertahankan isian (FR-37), klaim usaha & logo program tanpa sumber disembunyikan sampai dikonfirmasi (K16, K17). |
