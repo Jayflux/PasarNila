@@ -1,10 +1,12 @@
 import "server-only";
 
 import type { WhatsAppMessageKind } from "@/config/whatsapp-messages";
+import { PRIMARY_PRODUCT_SLUG } from "@/lib/data/products";
 import type { BusinessName } from "@/lib/data/site-settings";
-import { getWhatsAppConfig } from "@/lib/env";
+import { getWhatsAppConfig, getSiteUrl } from "@/lib/env";
 import {
   buildWhatsAppMessage,
+  buildProductUrl,
   buildWhatsAppUrl,
   formatWhatsAppNumberForDisplay,
 } from "@/lib/whatsapp";
@@ -31,18 +33,31 @@ export function getGeneralWhatsAppHref(businessName: BusinessName): string | nul
 export function getProductWhatsAppHref(
   kind: WhatsAppMessageKind,
   productName: string,
+  slug: string = PRIMARY_PRODUCT_SLUG,
 ): string | null {
   return buildWhatsAppUrl(
     getWhatsAppConfig(),
     buildWhatsAppMessage(kind, {
       productName,
-      // TAHAP BERIKUTNYA: isi dengan buildProductUrl(getSiteUrl(), slug) setelah route
-      // /produk/[slug] dibuat. Sekarang dikosongkan agar pesan tidak memuat tautan ke halaman 404.
-      productUrl: null,
+      productUrl: buildProductUrl(getSiteUrl(), slug),
     }),
   );
 }
 
 export function getWhatsAppDisplayNumber(): string | null {
   return formatWhatsAppNumberForDisplay(getWhatsAppConfig());
+}
+
+export function getVolumeOrderWhatsAppHref(
+  kg: number,
+  productName: string,
+  slug: string = PRIMARY_PRODUCT_SLUG,
+): string | null {
+  return buildWhatsAppUrl(
+    getWhatsAppConfig(),
+    buildWhatsAppMessage("product_available", {
+      productName: `${kg} kg ${productName}`,
+      productUrl: buildProductUrl(getSiteUrl(), slug),
+    }),
+  );
 }

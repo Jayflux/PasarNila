@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { StoredStockPrice } from "@/lib/domain/product-status";
 import { logReadError } from "@/lib/data/log";
 import { getPublicSupabaseClient, publicReadSignal } from "@/lib/supabase/public-client";
+import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 
 /**
  * Pembacaan produk untuk halaman publik (ARCHITECTURE.md §5.1, §12).
@@ -26,6 +27,9 @@ export const PRIMARY_PRODUCT_FALLBACK_NAME = "Ikan Nila";
 const PRODUCT_COLUMNS =
   "slug, name, short_description, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
 
+const PARTNER_PRODUCT_COLUMNS =
+  "id, slug, name, short_description, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
+
 /** PostgREST mengirim `numeric` sebagai angka JSON; string angka diterima sebagai cadangan. */
 const numericColumn = z.union([
   z.number(),
@@ -42,6 +46,10 @@ const productRowSchema = z.object({
   stock_kg: numericColumn.nullable(),
   price_per_kg_idr: z.number().int().nullable(),
   stock_price_confirmed_at: z.string().nullable(),
+});
+
+const partnerProductRowSchema = productRowSchema.extend({
+  id: z.string().uuid(),
 });
 
 export type PublicProduct = {
@@ -99,6 +107,66 @@ export async function loadPublishedProduct(slug: string): Promise<PublicProductR
     };
   } catch (error) {
     logReadError("products", error);
+    return { status: "error" };
+  }
+}
+
+export type PartnerProduct = {
+  id: string;
+  slug: string;
+  name: string;
+  shortDescription: string | null;
+  stockPrice: StoredStockPrice;
+};
+
+export type PartnerProductResult =
+  | { status: "ok"; product: PartnerProduct }
+  | { status: "not_found" }
+  | { status: "error" };
+
+/**
+ * Pembacaan produk dengan ID untuk panel mitra (ARCHITECTURE.md §5.3, §10.4).
+ * Memakai kredensial sesi mitra sehingga dapat mengakses baris produk lengkap.
+ */
+export async function loadProductForPartner(slug: string): Promise<PartnerProductResult> {
+  await connection();
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("products")
+      .select(PARTNER_PRODUCT_COLUMNS)
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (error) {
+      logReadError("products_partner", error);
+      return { status: "error" };
+    }
+    if (data === null) return { status: "not_found" };
+
+    const parsed = partnerProductRowSchema.safeParse(data);
+    if (!parsed.success) {
+      logReadError("products_partner", new Error("bentuk baris produk mitra tidak sesuai skema"));
+      return { status: "error" };
+    }
+
+    const row = parsed.data;
+    return {
+      status: "ok",
+      product: {
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        shortDescription: row.short_description,
+        stockPrice: {
+          stockKg: row.stock_kg,
+          pricePerKgIdr: row.price_per_kg_idr,
+          confirmedAt: row.stock_price_confirmed_at,
+        },
+      },
+    };
+  } catch (error) {
+    logReadError("products_partner", error);
     return { status: "error" };
   }
 }

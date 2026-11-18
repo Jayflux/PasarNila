@@ -7,6 +7,7 @@ import { isPlaceholderText } from "@/lib/content/placeholder";
 import { logReadError } from "@/lib/data/log";
 import { toPlainExcerpt } from "@/lib/format/excerpt";
 import { getPublicSupabaseClient, publicReadSignal } from "@/lib/supabase/public-client";
+import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 
 /**
  * Pembacaan daftar artikel terbit untuk halaman publik (ARCHITECTURE.md §6, §12.3).
@@ -17,6 +18,15 @@ import { getPublicSupabaseClient, publicReadSignal } from "@/lib/supabase/public
 
 /** PRD BR-A1: tepat dua artikel. */
 export const MAX_PUBLIC_ARTICLES = 2;
+
+export type PartnerArticle = {
+  slug: string;
+  title: string;
+  body: string;
+  isPublished: boolean;
+  sortOrder: number;
+  updatedAt: string | null;
+};
 
 const articleRowSchema = z.object({
   slug: z.string().min(1),
@@ -75,3 +85,33 @@ export async function loadPublishedArticles(
     return { status: "error" };
   }
 }
+
+/**
+ * Pembacaan artikel untuk panel mitra (menggunakan session cookie mitra).
+ */
+export async function loadArticlesForPartner(): Promise<PartnerArticle[]> {
+  await connection();
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("articles")
+      .select("slug, title, body, is_published, sort_order, updated_at")
+      .order("sort_order", { ascending: true });
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((row) => ({
+      slug: row.slug,
+      title: row.title,
+      body: row.body,
+      isPublished: row.is_published,
+      sortOrder: row.sort_order,
+      updatedAt: row.updated_at,
+    }));
+  } catch {
+    return [];
+  }
+}
+

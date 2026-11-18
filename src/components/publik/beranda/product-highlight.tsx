@@ -1,9 +1,11 @@
 import { Suspense } from "react";
+import Link from "next/link";
 
 import { Placeholder } from "@/components/publik/placeholder";
 import { SectionHeading } from "@/components/publik/section-heading";
 import { WhatsAppButton } from "@/components/publik/whatsapp-button";
-import { ClockIcon, ScaleIcon, TagIcon } from "@/components/ui/icons";
+import { buttonClass } from "@/components/ui/button-styles";
+import { ArrowRightIcon, ClockIcon, ScaleIcon, TagIcon } from "@/components/ui/icons";
 import { HOME_SECTIONS } from "@/config/navigation";
 import { isPlaceholderText } from "@/lib/content/placeholder";
 import { logReadError } from "@/lib/data/log";
@@ -12,6 +14,7 @@ import {
   PRIMARY_PRODUCT_FALLBACK_NAME,
   PRIMARY_PRODUCT_SLUG,
 } from "@/lib/data/products";
+import { VOLUME_TIERS } from "@/lib/data/volume-pricing";
 import {
   CONFIRMED_AT_EXPLANATION,
   CONFIRMED_AT_HEADING,
@@ -125,6 +128,21 @@ async function ProductHighlightCard() {
               <PriceFact price={display.price} />
             </dl>
 
+            <div className="rounded-2xl border border-line bg-cream/50 p-4">
+              <p className="text-xs font-bold tracking-wide uppercase text-accent-strong">
+                Pilihan Paket Kuantitas:
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs sm:text-sm">
+                {VOLUME_TIERS.map((tier) => (
+                  <div key={tier.kg} className="rounded-xl border border-line/60 bg-surface p-2">
+                    <p className="font-bold text-ink">{tier.label}</p>
+                    <p className="text-accent-strong font-semibold">{tier.priceFormatted}</p>
+                    <p className="text-[11px] text-ink-muted">{tier.pricePerKgFormatted}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-2xl bg-neutral-soft/70 p-4 text-sm leading-6 text-ink-muted">
               <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <ClockIcon className="size-5 shrink-0 text-accent-strong" />
@@ -144,11 +162,19 @@ async function ProductHighlightCard() {
           </div>
         )}
 
-        <WhatsAppButton
-          href={whatsappHref}
-          label={`Tanya ${productName} via WhatsApp`}
-          className="self-stretch sm:self-start"
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Link
+            href={`/produk/${PRIMARY_PRODUCT_SLUG}`}
+            className={buttonClass("primary")}
+          >
+            Pilih Kuantitas Pesanan
+            <ArrowRightIcon className="size-4 shrink-0" />
+          </Link>
+          <WhatsAppButton
+            href={whatsappHref}
+            label={`Tanya ${productName} via WhatsApp`}
+          />
+        </div>
       </div>
     </article>
   );
@@ -180,7 +206,7 @@ function PriceFact({ price }: { price: PriceStatus }) {
     <div className={factBox}>
       <dt className={factLabel}>
         <TagIcon className="size-5 shrink-0 text-accent-strong" />
-        Harga
+        Harga Satuan
       </dt>
       <dd
         className={`mt-1 text-2xl font-bold tracking-tight ${price.kind === "set" ? "text-ink" : "text-neutral-ink"}`}
