@@ -7,8 +7,9 @@
  * - Uji penolakan menulis nilai yang SAMA dengan yang sudah tersimpan, sehingga isi tidak berubah
  *   walaupun keamanan ternyata bocor (uji tetap gagal karena baris ikut terubah).
  * - Signup tidak dicoba sungguhan; yang diuji adalah pengaturan `disable_signup`.
- * - Uji RPC positif memakai produk uji TERSEMBUNYI yang dibuat lewat SUPABASE_DB_URL lalu dihapus di
- *   afterAll. Tanpa SUPABASE_DB_URL, uji itu dilewati.
+ * - Uji RPC positif memakai produk uji TERSEMBUNYI yang dibuat lewat saluran fixture (SUPABASE_DB_URL, atau
+ *   Management API dengan SUPABASE_ACCESS_TOKEN; lihat tests/support/cloud-fixture.ts) lalu dihapus di
+ *   afterAll. Tanpa keduanya, uji itu dilewati.
  * - Login membuat sesi di Auth (metadata login berubah). Karena itu hanya untuk dev/staging.
  */
 import { randomUUID } from "node:crypto";
@@ -16,9 +17,8 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { readEnvLocalFile, resolveCloudTarget, type CloudTarget } from "../support/cloud-target";
-import type { Db } from "../db/support/db";
-import { connectCloudDb } from "../db/support/pg-db";
+import { connectFixtureDb, type FixtureDb } from "../support/cloud-fixture";
+import { resolveCloudTarget, type CloudTarget } from "../support/cloud-target";
 
 const resolved = resolveCloudTarget();
 
@@ -39,7 +39,7 @@ if (!resolved.ok) {
   const partner = client(target);
   let outsiderReady = false;
   let partnerReady = false;
-  let fixtureDb: Db | null = null;
+  let fixtureDb: FixtureDb | null = null;
   let fixtureProductId: string | null = null;
 
   beforeAll(async () => {
@@ -51,9 +51,8 @@ if (!resolved.ok) {
       const { error } = await partner.auth.signInWithPassword(target.partner);
       partnerReady = !error;
     }
-    if (target.dbUrl) {
-      const env = readEnvLocalFile() ?? {};
-      fixtureDb = await connectCloudDb(target.dbUrl, env.SUPABASE_DB_CA_PATH || undefined);
+    fixtureDb = await connectFixtureDb(target);
+    if (fixtureDb) {
       const slug = `uji-api-${randomUUID().slice(0, 8)}`;
       const created = await fixtureDb.query<{ id: string }>(
         "insert into public.products (slug, name, is_published) values ($1, 'Produk Uji API', false) returning id",
@@ -215,7 +214,7 @@ if (!resolved.ok) {
 
     it("RPC menyimpan & konfirmasi ulang pada produk uji tersembunyi (AC-26, AC-31)", async ({ skip }) => {
       if (!partnerReady) return;
-      if (!fixtureProductId) skip("SUPABASE_DB_URL kosong: produk uji terisolasi tidak dapat dibuat");
+      if (!fixtureProductId) skip("tidak ada saluran fixture (SUPABASE_DB_URL / SUPABASE_ACCESS_TOKEN): produk uji terisolasi tidak dapat dibuat");
       const first = await partner.rpc("confirm_product_stock_price", {
         p_product_id: fixtureProductId,
         p_stock_kg: "12.5",

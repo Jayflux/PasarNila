@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/actions/article", () => ({ updateArticleAction: vi.fn(), recheckArticleAction: vi.fn() }));
+vi.mock("@/lib/actions/stock-price", () => ({ saveStockPriceAction: vi.fn(), recheckStockPriceAction: vi.fn() }));
 vi.mock("@/lib/actions/site-settings", () => ({
   updateBusinessNameAction: vi.fn(),
   recheckBusinessNameAction: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 import { ArticleMarkdown } from "@/components/content/article-markdown";
 import { ArticleForm } from "@/components/panel/article-form";
+import { StockPriceForm } from "@/components/panel/stock-price-form";
 import PanelPengaturanPage from "@/app/mitra/(terlindungi)/pengaturan/page";
 import { loadSiteSettingsForPartner } from "@/lib/data/site-settings";
 
@@ -105,5 +107,27 @@ describe("pengaturan nama usaha: gagal baca TIDAK memakai nama cadangan", () => 
     const html = renderToStaticMarkup(await PanelPengaturanPage());
     expect(html).toMatch(/name="businessName"[^>]*value="Juki Fish Farm"/);
     expect(html).toContain('value="2026-11-18T07:00:00+00:00"');
+  });
+});
+
+describe("formulir stok & harga: struktur pratinjau", () => {
+  it("peringatan harga Rp0 berada di dalam <dd> (regresi axe definition-list, fase 9)", () => {
+    const html = renderToStaticMarkup(
+      <StockPriceForm
+        productId="11111111-1111-4111-8111-111111111111"
+        productName="Ikan Nila"
+        initialStockKg={10}
+        initialPriceIdr={0}
+        initialConfirmedAt="2026-11-18T07:00:00+00:00"
+        initialConfirmedAtLabel="18 November 2026 pukul 14.00 WIB"
+      />,
+    );
+    const dl = html.slice(html.indexOf("<dl"), html.indexOf("</dl>"));
+    expect(dl).toMatch(/<dd[^>]*>Rp0 \/ kg<span[^>]*>Harga Rp0 akan diminta konfirmasi<\/span><\/dd>/);
+    // Setiap anak langsung <div> di dalam <dl> hanya berisi <dt>/<dd>.
+    for (const group of dl.split(/<div class="[^"]*">/).slice(1)) {
+      expect(group.trimStart().startsWith("<dt")).toBe(true);
+      expect(group).not.toMatch(/<\/dd><p/);
+    }
   });
 });

@@ -3,6 +3,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { getSupabasePublicEnv } from "@/lib/env";
+import type { Database } from "@/types/database";
 
 /**
  * Klien Supabase untuk BACA PUBLIK (ARCHITECTURE.md §7, §12.2).
@@ -16,12 +17,13 @@ import { getSupabasePublicEnv } from "@/lib/env";
 /** Batas waktu satu query baca publik. Lewat dari ini dianggap gagal dimuat (PRD AC-12). */
 export const PUBLIC_READ_TIMEOUT_MS = 8_000;
 
-let publicClient: SupabaseClient | null = null;
+export type AppSupabaseClient = SupabaseClient<Database>;
+let publicClient: AppSupabaseClient | null = null;
 
-export function getPublicSupabaseClient(): SupabaseClient {
+export function getPublicSupabaseClient(): AppSupabaseClient {
   if (publicClient === null) {
     const { url, publishableKey } = getSupabasePublicEnv();
-    publicClient = createClient(url, publishableKey, {
+    publicClient = createClient<Database>(url, publishableKey, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,

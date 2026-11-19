@@ -22,6 +22,7 @@ export default async function PanelDashboardPage() {
   const heading = (
     <SectionHeading
       id="panel-stok-judul"
+      level="h1"
       eyebrow="Panel pengelolaan"
       title="Stok & harga satuan"
       description="Stok total (kg) dan harga per kg dipakai bersama oleh semua pilihan paket. Setelah disimpan, angka baru tampil di website saat halaman dibuka atau dimuat ulang."

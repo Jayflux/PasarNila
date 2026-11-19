@@ -76,7 +76,7 @@ export function HeroVisual() {
           />
         </svg>
       </div>
-      <figcaption className="absolute bottom-4 left-4 rounded-full bg-deep-strong/80 px-3 py-1 text-xs font-medium text-on-deep backdrop-blur-sm">
+      <figcaption className="absolute bottom-4 left-4 rounded-full bg-deep-strong px-3 py-1 text-xs font-medium text-on-deep">
         Ilustrasi · foto usaha menyusul
       </figcaption>
     </figure>

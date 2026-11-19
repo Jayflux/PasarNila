@@ -206,12 +206,12 @@ export function StockPriceForm({
               </dt>
               <dd className="mt-1 text-2xl font-bold text-ink">
                 {livePrice.ok ? formatPricePerKg(livePrice.idr) : "Belum valid"}
+                {livePrice.ok && livePrice.idr === 0 ? (
+                  <span className="mt-1.5 block w-fit rounded bg-warn-soft px-2 py-0.5 text-xs font-semibold text-warn-ink">
+                    Harga Rp0 akan diminta konfirmasi
+                  </span>
+                ) : null}
               </dd>
-              {livePrice.ok && livePrice.idr === 0 ? (
-                <p className="mt-1.5 inline-block rounded bg-warn-soft px-2 py-0.5 text-xs font-semibold text-warn-ink">
-                  Harga Rp0 akan diminta konfirmasi
-                </p>
-              ) : null}
             </div>
             <div className="rounded-2xl bg-neutral-soft/70 p-4 text-sm text-ink-muted">
               <dt className="flex items-center gap-2 font-semibold text-ink">

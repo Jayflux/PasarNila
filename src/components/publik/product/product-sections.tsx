@@ -116,7 +116,7 @@ export async function ProductDetail({ params }: { params: Promise<{ slug: string
     <div className="space-y-10">
       <article aria-labelledby="produk-detail-nama" className="overflow-hidden rounded-[1.75rem] border border-line bg-surface shadow-sm">
         <div className="grid md:grid-cols-[0.85fr_1.15fr]">
-          <ProductMedia className="min-h-64 md:min-h-80" />
+          <ProductMedia className="min-h-32 md:min-h-80" />
           <div className="flex flex-col gap-6 p-6 sm:p-8">
             <div>
               <h1 id="produk-detail-nama" className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">

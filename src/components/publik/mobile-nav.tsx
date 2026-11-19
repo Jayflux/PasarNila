@@ -73,6 +73,7 @@ export function MobileNav({ items, whatsappSlot }: Props) {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  prefetch={false}
                   onClick={() => setOpen(false)}
                   className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-ink transition hover:bg-accent-soft"
                 >

@@ -51,6 +51,7 @@ export default async function EditArticlePage({ params }: PageProps) {
         {breadcrumb}
         <SectionHeading
           id="sunting-artikel-judul"
+          level="h1"
           eyebrow="Editor artikel"
           title={article.title}
           description="Perbarui judul dan isi. Gunakan tab Pratinjau untuk melihat tampilan sebelum menyimpan."

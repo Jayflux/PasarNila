@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/public-client";
 
 import {
   recheckStockPrice,
@@ -19,14 +19,14 @@ import { settle } from "@/lib/write/outcome";
  * Logika ada di `core/stock-price.ts`; file ini hanya menghubungkan Supabase dan revalidasi.
  */
 
-function stockPriceDb(supabase: SupabaseClient): StockPriceDb {
+function stockPriceDb(supabase: AppSupabaseClient): StockPriceDb {
   return {
     confirm: ({ productId, stockCanonical, priceIdr }) =>
       settle(() =>
         supabase
           .rpc("confirm_product_stock_price", {
             p_product_id: productId,
-            p_stock_kg: stockCanonical,
+            p_stock_kg: Number(stockCanonical),
             p_price_per_kg_idr: priceIdr,
           })
           .abortSignal(writeSignal()),

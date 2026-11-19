@@ -1,6 +1,7 @@
 import "server-only";
 
 import { connection } from "next/server";
+import { cache } from "react";
 import { z } from "zod";
 
 import type { StoredStockPrice } from "@/lib/domain/product-status";
@@ -24,7 +25,7 @@ export const PRIMARY_PRODUCT_SLUG = "ikan-nila";
 /** Nama untuk teks UI/pesan WhatsApp saat data produk gagal dimuat (produk dikonfirmasi klien). */
 export const PRIMARY_PRODUCT_FALLBACK_NAME = "Ikan Nila";
 
-const PRODUCT_COLUMNS =
+export const PRODUCT_COLUMNS =
   "id, slug, name, short_description, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
 
 /** PostgREST mengirim `numeric` sebagai angka JSON; string angka diterima sebagai cadangan. */
@@ -62,7 +63,8 @@ export type PublicProductResult =
   /** DB tidak dapat diakses, timeout, konfigurasi tidak lengkap, atau data tidak sesuai bentuk. */
   | { status: "error" };
 
-export async function loadPublishedProduct(slug: string): Promise<PublicProductResult> {
+/** Reuse metadata/render reads within one request only; no cross-request cache. */
+export const loadPublishedProduct = cache(async (slug: string): Promise<PublicProductResult> => {
   // Penanda eksplisit: semua kode sesudah ini hanya berjalan saat permintaan (§12.2).
   await connection();
 
@@ -79,33 +81,28 @@ export async function loadPublishedProduct(slug: string): Promise<PublicProductR
       logReadError("products", error);
       return { status: "error" };
     }
-    if (data === null) return { status: "not_found" };
-
-    const parsed = productRowSchema.safeParse(data);
-    if (!parsed.success) {
-      logReadError("products", new Error("bentuk baris produk tidak sesuai skema"));
-      return { status: "error" };
-    }
-
-    const row = parsed.data;
-    return {
-      status: "ok",
-      product: {
-        id: row.id,
-        slug: row.slug,
-        name: row.name,
-        shortDescription: row.short_description,
-        stockPrice: {
-          stockKg: row.stock_kg,
-          pricePerKgIdr: row.price_per_kg_idr,
-          confirmedAt: row.stock_price_confirmed_at,
-        },
-      },
-    };
+    return parsePublishedProduct(data);
   } catch (error) {
     logReadError("products", error);
     return { status: "error" };
   }
+});
+
+export function parsePublishedProduct(data: unknown): PublicProductResult {
+  if (data === null) return { status: "not_found" };
+  const parsed = productRowSchema.safeParse(data);
+  if (!parsed.success) {
+    logReadError("products", new Error("bentuk baris produk tidak sesuai skema"));
+    return { status: "error" };
+  }
+  const row = parsed.data;
+  return {
+    status: "ok",
+    product: {
+      id: row.id, slug: row.slug, name: row.name, shortDescription: row.short_description,
+      stockPrice: { stockKg: row.stock_kg, pricePerKgIdr: row.price_per_kg_idr, confirmedAt: row.stock_price_confirmed_at },
+    },
+  };
 }
 
 export type PartnerProduct = {

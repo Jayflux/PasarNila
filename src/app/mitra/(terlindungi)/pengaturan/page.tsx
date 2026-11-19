@@ -21,6 +21,7 @@ export default async function PanelPengaturanPage() {
     <div className="space-y-8">
       <SectionHeading
         id="panel-pengaturan-judul"
+        level="h1"
         eyebrow="Panel pengelolaan"
         title="Pengaturan usaha"
         description="Hanya nama usaha yang dapat diubah dari panel. Alamat, tautan peta, dan jam operasional diubah pengembang."

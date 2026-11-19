@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import type { Database } from "@/types/database";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { checkDetailRoute } from "@/config/known-slugs";
@@ -25,7 +26,7 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
   try {
     const { url, publishableKey } = getSupabasePublicEnv();
-    const supabase = createServerClient(url, publishableKey, {
+    const supabase = createServerClient<Database>(url, publishableKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();

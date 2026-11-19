@@ -33,7 +33,8 @@ export async function SiteFooter() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="inline-flex min-h-11 items-center text-sm text-on-deep-muted transition hover:text-on-deep md:min-h-9"
+                  prefetch={false}
+                  className="inline-flex min-h-11 min-w-11 items-center text-sm text-on-deep-muted transition hover:text-on-deep"
                 >
                   {item.label}
                 </Link>
@@ -55,7 +56,7 @@ export async function SiteFooter() {
                       href={site.mapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 inline-flex min-h-11 items-center gap-1.5 font-medium text-on-deep underline decoration-accent-bright/60 underline-offset-4 hover:decoration-accent-bright md:min-h-0"
+                      className="mt-1 inline-flex min-h-11 items-center gap-1.5 font-medium text-on-deep underline decoration-accent-bright/60 underline-offset-4 hover:decoration-accent-bright"
                     >
                       Buka di Google Maps
                       <ExternalIcon className="size-4" />
@@ -72,7 +73,7 @@ export async function SiteFooter() {
                   href={whatsappHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center font-medium text-on-deep underline decoration-accent-bright/60 underline-offset-4 hover:decoration-accent-bright md:min-h-0"
+                  className="inline-flex min-h-11 items-center font-medium text-on-deep underline decoration-accent-bright/60 underline-offset-4 hover:decoration-accent-bright"
                 >
                   WhatsApp {whatsappNumber}
                   <span className="sr-only"> (membuka WhatsApp di tab baru)</span>

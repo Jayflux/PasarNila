@@ -2,9 +2,9 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.7 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
+| Versi dokumen | 0.8 (draf untuk ditinjau). Riwayat perubahan ada di bagian akhir dokumen. |
 | Tanggal | 19 November 2026 |
-| Status | Usulan, menunggu persetujuan. Halaman publik, panel mitra (stok & harga, **paket katalog**, artikel, pengaturan), dan **7 migrasi** (6 tahap v0.4 + paket katalog) sudah dibuat; lulus 145 uji database lokal (PGlite, tanpa Docker) dan 349 unit test. **Belum** diterapkan ke cloud (PRD Q-22) dan **belum** diuji di build produksi maupun Vercel. Belum ada deployment. |
+| Status | Usulan, menunggu persetujuan. Proyek Supabase "PasarNila" adalah **dev/staging**, 11 versi migrasi, 0 pending. Unit 361/361, PGlite 145/145; Data API 26/26 adalah bukti historis. **Fase 9 selesai sebagian**: browser 81/81, responsif dan batas severity axe lulus. NFR-18 belum terverifikasi terpenuhi (host pengukuran tidak memadai); `test:db:cloud` terhalang jaringan (TCP 5432 ke Session pooler timeout, 0 assertion berjalan) meskipun URI sudah valid ([laporan fase 9 §19](./docs/verification/phase-9.md#19-tabel-kriteria-pekerjaan-selesai-dan-langkah-berikutnya)). Perubahan fase 9 masih di working tree (HEAD `173d9d6`). Tipe skema publik sudah dihasilkan dan dipakai. Belum ada deployment dan proyek belum dipakai klien. |
 | Dokumen terkait | [`PRD.md`](./PRD.md): kebutuhan produk. ID `A-xx` (asumsi), `Q-xx` (pertanyaan), `AC-xx` (acceptance criteria), dan `BR-xx` (aturan bisnis) merujuk ke PRD. |
 
 Label status yang dipakai sama dengan PRD: **[Dikonfirmasi]**, **[Asumsi A-xx]**, **[Pertanyaan Q-xx]**, **[Saran]**.
@@ -499,8 +499,9 @@ sequenceDiagram
 - **Cache-Control panel:** respons dinamis berbasis cookie mendapat
   `private, no-cache, no-store, max-age=0, must-revalidate` dari Next.js (dokumentasi `self-hosting.md`,
   `cdn-caching.md`). Shell prerender `/mitra/*` tidak memuat data sesi karena layout memeriksa sesi sebelum
-  merender apa pun. Karena itu **tidak** ada header tambahan di `next.config.ts`; nilai header di build
-  produksi/Vercel **belum terverifikasi** dan masuk uji T-15/T-21.
+  merender apa pun. Karena itu **tidak** ada header tambahan di `next.config.ts`. **Terverifikasi (19 Nov 2026, `next build` +
+  `next start` lokal):** semua halaman `/mitra/*` menjawab `private, no-cache, no-store, max-age=0,
+  must-revalidate`. Nilai di Vercel/CDN belum diuji (T-15/T-21).
 - Path `/mitra` dipilih agar mudah dipahami. Merahasiakan path bukan bentuk keamanan, karena keamanan
   ditegakkan di lapis 2–3 (§3.2).
 
@@ -528,7 +529,10 @@ ringan, dengan dukungan `prefers-reduced-motion`.
 
 - **Publik:** `/produk`, `/produk/[slug]`, `/artikel`, `/artikel/[slug]`, `/profil`, `/kontak`, `robots.txt`,
   `sitemap.xml`. Bagian produk beranda, katalog, dan detail memakai satu sumber
-  (`src/components/publik/product/product-sections.tsx` → `loadPublishedCatalog`, tanpa cache). Produk gagal
+  (`src/components/publik/product/product-sections.tsx` → `loadPublishedCatalog`, tanpa cache lintas request).
+  Produk dan paket terurut dibaca dalam satu query embed FK PostgREST sebagai anon; metadata detail dan
+  render berbagi pembacaan per permintaan. Jika embed gagal, pembacaan produk saja membedakan kegagalan
+  katalog paket dari kegagalan data produk. Produk gagal
   dimuat → pesan gangguan AC-12 tanpa stok, harga, maupun paket. Isi artikel dirender sebagai Markdown aman
   (`src/components/content/article-markdown.tsx`). Peta tertanam di beranda, profil, dan kontak memakai
   satu komponen dengan keterangan "peta mencari alamat tertulis" (`src/components/publik/map-embed.tsx`).
@@ -1117,7 +1121,7 @@ mengubah data karena tidak ada di allowlist (AC-20).
   bawaan).
 - **Respons panel tidak boleh di-cache** (`Cache-Control: private, no-store`). Respons ber-cookie yang
   ter-cache dapat membuat pengguna lain masuk sebagai orang yang salah (peringatan resmi Supabase).
-  Next.js menetapkan header ini untuk respons dinamis (§6); nilainya di build produksi/Vercel belum diuji.
+  Next.js menetapkan header ini untuk respons dinamis (§6); terverifikasi di build produksi lokal (Lampiran E), belum di Vercel.
 - **Server Action tidak pernah redirect karena sesi:** hasilnya dikembalikan ke formulir agar isian tetap
   ada (AC-24). Halaman/layout tetap redirect bila tidak ada sesi.
 - **Rate limit login** memakai batas bawaan Supabase Auth (dapat diatur). CAPTCHA (Turnstile/hCaptcha)
@@ -1696,6 +1700,13 @@ Catatan konfigurasi lokal:
    `npm run test:api:cloud`.
 7. Buat akun mitra + isi `partner_admins` secara manual (§9.6). Di staging, buat juga akun uji
    "outsider".
+
+**Status (19 Nov 2026):** langkah 4–6 sudah dijalankan untuk proyek "PasarNila" setelah pemilik
+mengonfirmasinya sebagai dev/staging; hasilnya di Lampiran E. Catatan nyata dari pelaksanaan: (a) `db push`
+dan `--dry-run` memakai token dari `.env.local` yang diinjeksikan per proses (token di environment sistem
+berbeda dan tidak dipakai); (b) CLI melabeli proyek `environment: production` karena itu label bawaan
+Supabase untuk branch utama, bukan peruntukan; (c) penjaga target (`tests/support/cloud-target.ts`) tetap
+menjadi bukti peruntukan di sisi repo.
 6. Opsi lain: menghubungkan Supabase lewat **integrasi Vercel Marketplace** (env var tersinkron otomatis,
    tagihan lewat Vercel). Pilihan ini diputuskan bersama klien. Periksa env var yang ditambahkan otomatis
    (§9.7).
@@ -1817,13 +1828,13 @@ Catatan konfigurasi lokal:
 | 1 | Scaffold Next.js 16 + TypeScript strict + Tailwind v4 + ESLint (non-interaktif), kunci versi, `git init`, `.gitignore`, `.env.example`, Vitest, Playwright, CI dasar (lint, typecheck, unit). | `npm run lint/typecheck/test` lulus di CI. **Sebagian selesai (18 Nov 2026):** semua kecuali Playwright dan CI; lint, typecheck, test, dan `next build` lulus secara lokal. |
 | 2 | Fungsi domain murni + unit test terlebih dulu: parser stok/harga, formatter WIB/rupiah/kg, status produk, WhatsApp (normalisasi, tautan, templat), validasi env. | T-02, T-03, T-04, T-16 (unit) lulus. **Selesai secara lokal (18 Nov 2026).** Validasi nama usaha & artikel (BR-P3, BR-A6) menyusul bersama Server Action. |
 | 3 | Migrasi sesuai urutan §8.8 (schema & helper → tabel + RLS → fungsi pemeriksa akses → policy & grant → RPC → konten awal), konvergen terhadap skema v0.3 cloud (§8.9). Uji database tanpa Docker (PGlite). | Migrasi berjalan dari nol dan dari v0.3 tanpa error. T-07, T-09 (DB), T-12 (DB) lulus. **Selesai secara lokal (18 Nov 2026):** 86 uji PGlite lulus. |
-| 4 | Proyek Supabase dev/staging terverifikasi: preflight + dry-run, `db push --remote`, signup mati, akun mitra uji + outsider, `test:db:cloud`, `test:api:cloud`, generate tipe TS. | Uji cloud lulus. **Belum:** peruntukan proyek belum dinyatakan (PRD Q-22). |
+| 4 | Proyek Supabase dev/staging terverifikasi: preflight + dry-run, `db push --remote`, signup mati, akun mitra uji + outsider, `test:db:cloud`, `test:api:cloud`, generate tipe TS. | **Sebagian selesai (19 Nov 2026):** 11/11 versi, signup mati, akun uji berfungsi; Data API 26/26 historis. Tipe TS skema publik dihasilkan dari staging (read-only), dipakai klien dan adapter Server Action; validasi runtime dipertahankan. **Belum:** terhalang jaringan — TCP 5432 ke Session pooler timeout dari host ini (DNS lulus, TCP 443 ke API normal), sehingga 0 kasus SQL cloud berjalan; jalankan dari host yang menjangkau pooler (laporan fase 9 §19.2). |
 | 5 | Halaman publik dengan placeholder: layout, beranda, katalog, detail produk (dinamis + Suspense), profil, kontak, artikel, WhatsApp, loading/kosong/error, metadata, robots/sitemap, `noindex`. | T-01, T-05, T-15 (lokal), T-16, T-17, T-20 lulus. **Sebagian dikerjakan (18 Nov 2026):** layout publik dan beranda (§6.1) dengan placeholder. **Diperbarui 19 Nov 2026:** semua halaman publik ada (§6.2); T-01 (404 via Proxy), T-05, T-16, T-17, T-20 dicakup unit test; T-15 (build produksi) belum. |
 | 6 | Autentikasi: klien Supabase, `proxy.ts` (`/mitra/*`), login/logout, `requirePartner()`, halaman akses ditolak. | T-06, T-21 lulus. **Kode selesai (19 Nov 2026)** + unit test klasifikasi sesi/allowlist/login. Belum diuji terhadap Supabase Auth cloud. |
 | 7 | Panel stok & harga: form mobile-first, pratinjau, Server Action → RPC, pesan berhasil/gagal, konfirmasi ulang, dialog harga 0. | T-08–T-13 lulus. **Kode selesai** + unit test (pasti/belum pasti, pesan, baseline); uji DB T-09/T-11/T-12 lulus di PGlite. E2E belum. |
 | 8 | Panel artikel: daftar, form edit, pratinjau Markdown, Server Action, cek 0 baris. Panel pengaturan: form nama usaha, Server Action + `updateTag`, nama dari `getBusinessName()` di layout/metadata/WhatsApp. | T-14, T-22 lulus. **Kode selesai** + unit test; T-22 di Vercel belum. |
 | 8a | Paket katalog (PRD §12.8): migrasi #7, RPC, panel `/mitra/paket`, kartu publik, WhatsApp per paket. | T-24–T-27 lulus. **Kode selesai, lulus lokal** (unit + PGlite). Migrasi belum diterapkan ke cloud; E2E belum. |
-| 9 | Pengerasan: security headers, uji responsif & aksesibilitas, Lighthouse. | T-18, T-19 lulus. Target NFR-18 tercapai. |
+| 9 | Pengerasan: security headers, uji responsif & aksesibilitas, Lighthouse. | **Sebagian selesai (19 Nov 2026):** run akhir browser 81/81, pemeriksaan responsif 65/65, axe 36 scan tanpa pelanggaran; 12 `incomplete` ditinjau, pembaca layar/perangkat fisik belum diverifikasi. NFR-18 belum terverifikasi terpenuhi: host tidak memadai (baterai, Balanced, SwiftShader; kontrol halaman statis tanpa JS hanya 80), tanpa perubahan source ronde terakhir. Langkah benchmark di host pembanding: laporan fase 9 §19.3. Lihat [laporan fase 9](./docs/verification/phase-9.md). |
 | 10 | Vercel: hubungkan repo, env var per lingkungan, region, preview & production di `*.vercel.app` (`noindex`). | Smoke test pasca-deploy lulus, termasuk T-15 di Vercel. |
 | 11 | UAT bersama klien & mitra + panduan singkat 1 halaman untuk mitra. | Klien menyetujui UAT. |
 | 12 | Konten final & peluncuran (daftar periksa §13.1, §16.4). | Website live tanpa placeholder. |
@@ -1891,6 +1902,7 @@ Platform (dicek ulang saat implementasi karena dapat berubah):
 | 0.5 | 18 November 2026 | **Alur tanpa Docker.** Laptop menjalankan Next.js lokal; database & auth memakai Supabase cloud dev/staging yang terpisah dari production; deployment Vercel di tahap berikutnya. Uji database lokal memakai PGlite + shim Supabase, uji cloud memakai `pg` (rollback) dan Data API dengan sesi pengguna (§1.1, §8.8, §16.2, §17.1, §19, Lampiran C). **Rekonsiliasi cloud:** skema v0.3 + 4 versi riwayat tanpa isi SQL ditemukan; migrasi v0.4 dibuat konvergen + 4 file catatan riwayat (§8.9). Terverifikasi read-only: default privileges Supabase, `postgres` BYPASSRLS, definisi `auth.uid()`, signup cloud masih aktif. Catatan CLI 3.2.0: dry-run menyetel role sementara `cli_login_postgres`. Rancangan keamanan dan kebutuhan bisnis tidak berubah. |
 | 0.6 | 18 November 2026 | **Beranda publik** dibuat (§6.1). **Peta Google tertanam** di bagian Lokasi atas permintaan pemilik proyek: menggantikan pernyataan "penyematan peta tidak termasuk MVP" di §13.1; memakai alamat tertulis tanpa API key atau koordinat, tombol Google Maps tetap sebagai fallback, dan konten pihak ketiga Google dicatat. Kebutuhan bisnis lain tidak berubah. |
 | 0.7 | 19 November 2026 | **Paket katalog dikelola mitra** (PRD §12.8): §5.7, §6, §8.8 (#7), §8.10, §9.1, §9.9, §10.2, §11.3, §11.4, §12.3, §13.2, T-24–T-28, §19 langkah 8a. **Perbaikan audit commit `4373729`** (Lampiran D): klasifikasi hasil tulis & pembacaan ulang (§10.3, §10.4), sesi/allowlist tiga keadaan dan alasan `getUser()` (§5.2, §9.8), 404 slug via Proxy dan header cache panel (§6), halaman publik & panel (§6.2), logo/klaim tanpa sumber disembunyikan (§13.1). |
+| 0.8 | 19 November 2026 | **Integrasi cloud dev/staging** (Lampiran E): peruntukan proyek dikonfirmasi pemilik; migrasi #7 diterapkan; signup dimatikan; `test:api:cloud` diperluas dengan kasus paket dan saluran fixture Management API (`tests/support/cloud-fixture.ts`); build produksi + smoke test HTTP; perbaikan `connection()` pada pemeriksaan akses halaman (`require-partner.ts`). Status baris Lampiran D #10/#11 diperbarui. |
 
 ## Lampiran C — Alur tanpa Docker & rekonsiliasi cloud (18 November 2026)
 
@@ -1925,7 +1937,87 @@ belum diverifikasi.
 | 7 | Sesi berakhir menghapus isian; gangguan akses = bukan mitra | Action mengembalikan `session_expired`/`access_check_failed`; form terkontrol | `access-classify.test.ts`, uji action |
 | 8 | Simpan artikel dari Pratinjau kehilangan input | Input selalu di formulir; ringkasan error terlihat dari tab aktif | `panel-forms.test.tsx` |
 | 9 | Artikel bukan Markdown | `react-markdown@10.1.0` tanpa `rehype-raw`, elemen dasar saja | `panel-forms.test.tsx` (HTML tampil sebagai teks, `javascript:` dibuang) |
-| 10 | 404 saat streaming | Proxy menjawab 404 untuk slug tak dikenal (dokumentasi Next.js 16.4.6) | `routing-404.test.ts`; status di build produksi **belum diverifikasi** |
-| 11 | Header cache panel | Diverifikasi dari dokumentasi: dinamis → `private, no-store`; tidak ada header tambahan | **Belum diverifikasi** di build produksi |
+| 10 | 404 saat streaming | Proxy menjawab 404 untuk slug tak dikenal (dokumentasi Next.js 16.4.6) | `routing-404.test.ts`; **terverifikasi di build produksi lokal (19 Nov 2026):** `/produk/ikan-mas`, `/artikel/tidak-ada`, `/halaman-ngawur` → HTTP 404 + `noindex` (Lampiran E) |
+| 11 | Header cache panel | Diverifikasi dari dokumentasi: dinamis → `private, no-store`; tidak ada header tambahan | **Terverifikasi di build produksi lokal:** semua `/mitra/*` → `private, no-cache, no-store`; Vercel belum |
 | 12 | Panel mencampur gagal muat & kosong | Hasil `ok/not_found/error`; formulir disembunyikan saat gagal; nama usaha tanpa fallback | `panel-forms.test.tsx` |
 | 13 | Merek, sitemap, keterangan peta, fungsi sesi, whitespace, dokumen | "PasarNila" dihapus dari teks UI; sitemap tanpa localhost; `MapEmbed` bersama; `getUser()` didokumentasikan (§5.2); EOF bersih; dokumen diperbarui | `routing-404.test.ts`, `git diff --check` |
+
+## Lampiran E — Integrasi cloud dev/staging (19 November 2026)
+
+Dasar peruntukan: pemilik proyek mengonfirmasi bahwa proyek Supabase "PasarNila" belum dipakai untuk
+operasional klien dan untuk pekerjaan ini adalah dev/staging; penggunaan operasional menunggu seluruh fase
+selesai (PRD Q-22, sebagian). Kesimpulan di bawah **tidak** menyatakan proyek siap dipakai klien.
+
+**Target terverifikasi (nonrahasia).** ref `fgxx…` (20 karakter): sama pada URL aplikasi,
+`supabase/.temp/linked-project.json`, dan respons Management API (`GET /v1/projects/{ref}`: nama "PasarNila",
+`ap-northeast-1`, `ACTIVE_HEALTHY`); kunci publishable valid untuk proyek itu (REST menjawab 200); versi
+PostgreSQL 17.12. `SUPABASE_PROJECT_REF` dan `SUPABASE_TARGET_ENV=staging` diisi di `.env.local` (dua
+variabel nonrahasia); variabel lain tidak diubah. Sumber kredensial: hanya `.env.local`. Environment sistem
+memuat `SUPABASE_ACCESS_TOKEN` dan `SUPABASE_DB_PASSWORD` yang **tidak** dipakai (asal-usulnya belum
+terverifikasi); `SUPABASE_DB_PASSWORD` di `.env.local` kosong.
+
+**Migrasi.** Sebelum: 10 versi sudah tercatat di cloud (4 catatan riwayat + 6 tahap v0.4, seluruhnya cocok
+dengan repo); pending hanya `20261119000001_product_packages.sql`. Dry-run resmi (`supabase db push --remote
+--dry-run --skip-vault`) mencantumkan hanya file itu; dry-run dan push membuat role login sementara CLI
+(`Initialising login role`). Sesudah: 11/11 cocok, pending 0. Dibandingkan dengan baseline: `product_packages`
+ada (RLS aktif, 0 baris, tanpa hak tulis untuk `anon`/`authenticated`, tanpa hak kolom), tiga fungsi paket
+EXECUTE hanya untuk `authenticated`, fungsi validasi `private.*` tanpa hak role API, dua policy baca baru,
+`USAGE` schema `private` tetap tertutup; ringkasan data (produk, artikel, pengaturan, allowlist, pengguna
+auth) dan snapshot produk **identik** dengan baseline; tidak ada paket contoh.
+
+**Auth.** Pendaftaran publik **aktif** sebelumnya (`disable_signup=false`). Dinonaktifkan dengan satu field
+lewat Management API (`PATCH /v1/projects/{ref}/config/auth {disable_signup:true}`), bukan `config push`;
+endpoint publik `/auth/v1/settings` menyusul `true` setelah jeda propagasi. Tidak ada akun yang dibuat,
+dihapus, atau di-reset. **Catatan:** `password_min_length` saat itu 6, di bawah anjuran §9.6 butir 2 (≥ 12);
+**dinaikkan ke 12 pada fase 9** (lihat `docs/verification/phase-9.md`). Batas baru hanya berlaku untuk password
+yang dibuat/diganti sesudahnya; password akun yang sudah ada tidak diperiksa ulang.
+
+**Uji cloud.**
+
+| Suite | Hasil | Catatan |
+|---|---|---|
+| `npm run test:db:cloud` | **Terhalang jaringan** (0 kasus dijalankan) | `SUPABASE_DB_URL` kini valid, tetapi TCP 5432 ke Session pooler timeout dari host ini (laporan fase 9 §13, §17). Kredensial sistem yang berbeda tidak dipakai. Perilaku role yang sama dibuktikan lewat Data API di bawah, tetapi 145 kasus SQL tidak diulang di cloud. |
+| `npm run test:api:cloud` | **26/26 lulus** | 11 kasus lama (termasuk "signup dimatikan" dan RPC positif pada produk uji tersembunyi) + 15 kasus paket (`tests/api/packages.cloud.test.ts`): anon/non-mitra ditolak (RPC dan tulis langsung), paket produk tersembunyi tidak terbaca publik, paket produk terbit terbaca publik, CRUD mitra lewat fungsi, tulis langsung mitra ditolak, input tidak valid ditolak database, tambah idempoten (ID sama, konflik `23505`), CRUD tidak mengubah stok/harga/waktu konfirmasi, harga satuan tidak menimpa harga paket, tidak ada sisa. |
+
+Fixture: produk uji tersembunyi (`uji-paket-…`, `uji-api-…`) dibuat dan dihapus lewat saluran fixture baru
+`tests/support/cloud-fixture.ts`: `SUPABASE_DB_URL` bila ada, jika tidak Management API dengan
+`SUPABASE_ACCESS_TOKEN` pada ref yang sama dengan target terverifikasi, dengan parameter dibatasi ke pola
+aman (`tests/unit/cloud-fixture.test.ts`). Paket sementara pada produk terbit dinamai `UJI-API-…`, dilacak
+per ID, dan dihapus. Pasca-uji diverifikasi dari database: tidak ada produk `uji-%`, tidak ada paket, snapshot
+produk dan ringkasan data identik dengan baseline. Catatan: kasus lama "mitra dapat UPDATE judul artikel & nama
+usaha (nilai sama)" menulis ulang nilai yang sama, sehingga `updated_at` `articles.artikel-1` dan
+`site_settings` berubah (isi tidak).
+
+**Build produksi lokal** (`npm run build`, memakai `.env.local` dev/staging; membaca `site_settings` dari
+cloud): lulus. Perbaikan yang ditemukan dari log build: pemeriksaan akses halaman menelan sinyal prerender
+`cookies()` di dalam `try` (log `[data:auth_client]` pada setiap route `/mitra`); sekarang `connection()`
+dipanggil sebelum `try` di `getPartnerAccess` dan log itu hilang.
+
+**Smoke test HTTP** (`next start` di 127.0.0.1:3100; bukan uji browser):
+
+- Halaman publik (`/`, `/produk`, `/produk/ikan-nila`, `/artikel`, `/artikel/artikel-1`, `/profil`,
+  `/kontak`) → 200, `noindex, nofollow` (ALLOW_INDEXING=false), header keamanan lengkap, tanpa logo/klaim
+  lama, tanpa teks "PasarNila"; `robots.txt` `Disallow: /`; sitemap tanpa `/mitra`. Slug tak dikenal →
+  **404** + `noindex` + pesan ramah (Proxy, §6). Katalog tanpa paket menampilkan "Belum ada pilihan paket".
+- `/mitra/*` tanpa sesi: redirect streaming ke login tanpa data/formulir; `Cache-Control: private, no-cache,
+  no-store`.
+- Dengan cookie sesi dari login akun uji (dibuat dengan `@supabase/ssr`, Server Action dipanggil dengan format
+  `encodeReply` React): panel mitra terender; non-mitra → redirect `akses-ditolak` dan Server Action
+  `forbidden`; tanpa sesi → `session_expired`; tambah (+ ulang ID sama → tidak ganda), ubah, hapus paket;
+  input tidak valid ditolak; katalog publik berubah setelah reload (Hemat Rp400.000 / Setara Rp31.000/kg untuk
+  100 kg Rp3.100.000 pada harga satuan Rp35.000; "Melebihi stok tercatat" untuk paket di atas stok; tanpa
+  badge untuk harga di atas pembanding); pesan WhatsApp paket menyebut nama, berat, harga total, dan tautan,
+  tanpa angka stok; setelah hapus katalog kembali kosong; stok/harga/waktu konfirmasi produk tidak berubah.
+  **Ganti nama usaha lewat panel tampil di halaman publik setelah reload tanpa redeploy** (`updateTag`
+  efektif di build produksi lokal, AC-46), lalu dipulihkan. Semua data uji dipulihkan/dihapus dan diverifikasi.
+- Gangguan terkontrol (proses kedua dengan `fetch` ke `*.supabase.co` digagalkan lewat preload Node; cloud tidak
+  dihubungi): `/`, `/produk`, `/produk/ikan-nila` → pesan gangguan tanpa stok/harga/paket, WhatsApp tetap ada;
+  `/artikel` dan `/artikel/artikel-1` → pesan gagal muat (bukan 404); panel mitra → "Pemeriksaan akses sedang
+  terganggu" (bukan "akses ditolak"), tanpa formulir. Tiap halaman menunggu ~7 detik karena klien Supabase
+  mencoba ulang pembacaan GET sebelum menyerah; perilaku ini belum diubah.
+
+**Tindak lanjut.** Untuk hasil browser, responsif, axe, keamanan, minimum password dan Lighthouse sesudah
+integrasi ini, lihat [laporan fase 9](./docs/verification/phase-9.md). Masih terbuka: NFR-18, UAT, Vercel
+(CDN, `updateTag` pada shell di edge, T-15, T-22 di preview), dan `test:db:cloud`. `NEXT_PUBLIC_SITE_URL`
+di `.env.local` masih `http://localhost:3000` (sitemap dan tautan WhatsApp mengikutinya; wajib diganti sebelum
+peluncuran); region dan akun production (PRD Q-22 sisa, Q-10).

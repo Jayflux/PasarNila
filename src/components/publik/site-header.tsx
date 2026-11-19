@@ -16,10 +16,11 @@ export async function SiteHeader() {
   const whatsappHref = getGeneralWhatsAppHref(businessName);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line/80 bg-cream/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-line bg-cream">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
         <Link
           href="/"
+          prefetch={false}
           className="min-w-0 flex-1 rounded-md md:flex-none"
           title={businessName.name}
         >
@@ -34,6 +35,7 @@ export async function SiteHeader() {
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  prefetch={false}
                   className="inline-flex min-h-11 items-center rounded-full px-4 text-[0.95rem] font-medium text-ink-muted transition hover:bg-accent-soft hover:text-deep"
                 >
                   {item.label}

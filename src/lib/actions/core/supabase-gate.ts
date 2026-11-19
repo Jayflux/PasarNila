@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/public-client";
 
 import type { Gate } from "@/lib/actions/core/shared";
 import { gatePartnerAction } from "@/lib/auth/require-partner";
@@ -19,7 +19,7 @@ export function verifyReadSignal(): AbortSignal {
 }
 
 /** Gerbang mitra untuk Server Action, lalu membangun akses database ber-JWT mitra. */
-export function supabaseGate<TDb>(build: (supabase: SupabaseClient) => TDb): Gate<TDb> {
+export function supabaseGate<TDb>(build: (supabase: AppSupabaseClient) => TDb): Gate<TDb> {
   return async () => {
     const gate = await gatePartnerAction();
     return gate.ok ? { ok: true, db: build(gate.supabase) } : gate;

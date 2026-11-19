@@ -1,8 +1,9 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { cache } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/public-client";
 
 import { classifyPartnerFlag, classifyUserLookup } from "@/lib/auth/access-classify";
 import { logReadError } from "@/lib/data/log";
@@ -22,13 +23,13 @@ import { MESSAGES, type ActionResult } from "@/lib/write/action-result";
  */
 
 export type PartnerAccess =
-  | { status: "partner"; supabase: SupabaseClient; userId: string; email: string | null }
+  | { status: "partner"; supabase: AppSupabaseClient; userId: string; email: string | null }
   | { status: "no_session" }
   | { status: "not_partner" }
   | { status: "check_failed" };
 
 async function checkPartnerAccessUncached(): Promise<PartnerAccess> {
-  let supabase: SupabaseClient;
+  let supabase: AppSupabaseClient;
   try {
     supabase = await createServerSupabaseClient();
   } catch (error) {
@@ -66,8 +67,19 @@ async function checkPartnerAccessUncached(): Promise<PartnerAccess> {
   }
 }
 
-/** Satu pemeriksaan per render (layout + halaman memakai hasil yang sama). */
-export const getPartnerAccess = cache(checkPartnerAccessUncached);
+/**
+ * Satu pemeriksaan per render (layout + halaman memakai hasil yang sama).
+ *
+ * `connection()` dipanggil SEBELUM blok `try` di bawahnya: dengan Cache Components, `cookies()` menolak
+ * (reject) saat prerender selesai, dan sinyal itu tidak boleh tertangkap lalu diperlakukan sebagai
+ * "pemeriksaan gagal". `connection()` menandai pemeriksaan ini sebagai runtime-only (dokumentasi Next.js
+ * 16.4.6). Terbukti dari log `next build`: sebelum perubahan ini muncul pesan `[data:auth_client]` untuk
+ * setiap route /mitra.
+ */
+export const getPartnerAccess = cache(async (): Promise<PartnerAccess> => {
+  await connection();
+  return checkPartnerAccessUncached();
+});
 
 export type PartnerPageAccess =
   | Extract<PartnerAccess, { status: "partner" }>
@@ -86,7 +98,7 @@ export async function requirePartnerPage(): Promise<PartnerPageAccess> {
 }
 
 export type ActionGate =
-  | { ok: true; supabase: SupabaseClient }
+  | { ok: true; supabase: AppSupabaseClient }
   | { ok: false; result: ActionResult<never, never> };
 
 /**

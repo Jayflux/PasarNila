@@ -26,7 +26,7 @@ export function Hero({ businessName, whatsappHref }: Props) {
       className="relative overflow-hidden bg-linear-to-b from-accent-soft/70 via-cream to-cream"
     >
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 pt-10 pb-16 sm:px-6 md:grid-cols-[1.1fr_0.9fr] md:gap-12 md:pt-16 md:pb-24">
-        <div className="motion-safe:animate-rise">
+        <div className="motion-safe:animate-rise-copy">
           {site.shortLocation ? (
             <p className="inline-flex items-center gap-1.5 rounded-full border border-deep/15 bg-surface/80 px-3 py-1 text-sm font-medium text-deep">
               <PinIcon className="size-4 shrink-0 text-accent-strong" />

@@ -24,6 +24,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  ...(process.env.PASARNILA_E2E_ISOLATED === "1" ? { distDir: ".playwright/build-phase9" } : {}),
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,

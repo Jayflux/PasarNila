@@ -20,7 +20,7 @@ export default async function ArtikelPage() {
   return (
     <section aria-labelledby="artikel-judul" className="py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading id="artikel-judul" eyebrow="Bacaan" title="Artikel" />
+        <SectionHeading id="artikel-judul" level="h1" eyebrow="Bacaan" title="Artikel" />
         <div className="mt-10">
           <Suspense fallback={<ArticleCardsSkeleton />}>
             <ArticleCards />

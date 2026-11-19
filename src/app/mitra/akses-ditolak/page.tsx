@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function AksesDitolakPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 sm:px-6">
+    <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 sm:px-6">
       <div className="max-w-md w-full text-center rounded-[1.75rem] border border-line bg-surface p-8 sm:p-10 shadow-sm">
         <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-warn-soft text-warn-ink">
           <span className="text-2xl font-bold">!</span>
@@ -38,6 +38,6 @@ export default function AksesDitolakPage() {
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

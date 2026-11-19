@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/public-client";
 
 import {
   createPackage,
@@ -20,7 +20,7 @@ import { settle } from "@/lib/write/outcome";
 
 const COLUMNS = "id, name, weight_kg, price_total_idr, updated_at";
 
-function packageDb(supabase: SupabaseClient): PackageDb {
+function packageDb(supabase: AppSupabaseClient): PackageDb {
   return {
     create: ({ id, productId, name, weightCanonical, priceIdr }) =>
       settle(() =>
@@ -29,7 +29,7 @@ function packageDb(supabase: SupabaseClient): PackageDb {
             p_id: id,
             p_product_id: productId,
             p_name: name,
-            p_weight_kg: weightCanonical,
+            p_weight_kg: Number(weightCanonical),
             p_price_total_idr: priceIdr,
           })
           .abortSignal(writeSignal()),
@@ -40,7 +40,7 @@ function packageDb(supabase: SupabaseClient): PackageDb {
           .rpc("update_product_package", {
             p_id: id,
             p_name: name,
-            p_weight_kg: weightCanonical,
+            p_weight_kg: Number(weightCanonical),
             p_price_total_idr: priceIdr,
           })
           .abortSignal(writeSignal()),

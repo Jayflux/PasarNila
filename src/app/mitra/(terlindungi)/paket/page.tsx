@@ -19,6 +19,7 @@ export default async function PanelPaketPage() {
   const heading = (
     <SectionHeading
       id="panel-paket-judul"
+      level="h1"
       eyebrow="Panel pengelolaan"
       title="Paket katalog"
       description="Atur pilihan paket Ikan Nila: nama, berat, dan harga total. Stok total dan harga satuan per kg tetap diatur di menu Stok & Harga."

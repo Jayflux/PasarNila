@@ -20,6 +20,7 @@ export default function ProdukPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           id="katalog-judul"
+          level="h1"
           eyebrow="Katalog"
           title="Produk"
           description="Stok, harga, dan pilihan paket adalah data terakhir yang disimpan penjual, dibaca setiap kali halaman dibuka atau dimuat ulang."

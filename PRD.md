@@ -2,7 +2,7 @@
 
 | Item | Keterangan |
 |---|---|
-| Versi dokumen | 0.7 (draf untuk ditinjau) |
+| Versi dokumen | 0.8 (draf untuk ditinjau) |
 | Tanggal | 19 November 2026 |
 | Status | Menunggu tinjauan dan persetujuan klien |
 | Dokumen terkait | [`ARCHITECTURE.md`](./ARCHITECTURE.md) (arsitektur teknis) |
@@ -807,7 +807,7 @@ Format: **Diberikan** (kondisi awal) → **Ketika** (aksi) → **Maka** (hasil y
 | Q-19 | Apakah ada klaim tertentu yang **boleh** atau **tidak boleh** ditampilkan (mis. asal budidaya, sertifikasi)? | Mencegah klaim keliru. | Tidak ada klaim. |
 | Q-20 | Apakah tim pengembang lebih terbiasa dengan TypeScript/React atau PHP/Laravel? | Memengaruhi pilihan stack (lihat `ARCHITECTURE.md` §1). | TypeScript/Next.js. |
 | Q-21 | **[Terjawab 17 Nov 2026]** ~~Siapa yang mengubah nama usaha?~~ Jawaban: **mitra dari panel**. Perlu tabel pengaturan baru (§12.7, `ARCHITECTURE.md` §8.7). | Menambah cakupan: tabel pengaturan, halaman panel, strategi cache nama. | — |
-| Q-22 | Proyek Supabase cloud "PasarNila" yang sudah ada (region Tokyo, berisi skema awal, satu akun mitra di allowlist, dan dua akun login): apakah ini proyek **development/staging**? Proyek production akan dibuat terpisah di region mana dan atas akun siapa (lihat Q-10)? | Migrasi dan uji yang mengubah data hanya boleh dijalankan ke dev/staging yang sudah dipastikan. | Proyek dianggap **belum terverifikasi**; tidak diubah. |
+| Q-22 | **[Sebagian terjawab 19 Nov 2026]** ~~Apakah proyek Supabase cloud "PasarNila" yang ada (region Tokyo) adalah proyek development/staging?~~ Jawaban pemilik proyek: **ya**, proyek itu belum dipakai untuk operasional klien dan untuk pekerjaan ini adalah lingkungan **dev/staging**; penggunaan operasional menunggu seluruh fase selesai. **Masih terbuka:** proyek **production** akan dibuat terpisah di region mana dan atas akun siapa (lihat Q-10), serta apakah proyek dev/staging ini kelak dipindah atau dibuang. | Migrasi dan uji yang mengubah data hanya boleh dijalankan ke dev/staging yang sudah dipastikan. | Proyek ini diperlakukan sebagai **staging**; production belum diputuskan dan **tidak** ditandai siap dipakai klien. |
 
 ---
 
@@ -917,3 +917,4 @@ keputusan Q-10.
 | 0.5 | 18 November 2026 | Alur pengembangan tanpa Docker: aplikasi lokal + Supabase cloud development/staging yang terpisah dari production; deployment Vercel di tahap berikutnya (§16.2, §18 fase 2). Q-22 ditambahkan (peruntukan dan region proyek cloud yang sudah ada); catatan region pada A-19. Kebutuhan bisnis tidak berubah. |
 | 0.6 | 18 November 2026 | Beranda publik dibuat dengan konten placeholder. Peta Google tertanam di bagian lokasi atas permintaan pemilik proyek (§1.1, §7, NFR-26); tombol Google Maps tetap tersedia. Kebutuhan bisnis dan pertanyaan terbuka lainnya tidak berubah. |
 | 0.7 | 19 November 2026 | **Paket katalog dikelola mitra** (keputusan baru): §5.1, §5.2 butir 10, §7, FR-34–FR-37, §12.8 (BR-PK1–BR-PK13), BR-WA4 diperjelas + BR-WA7, AC-53–AC-61 (§13.9), A-21 (stok total bersama), A-22 (batas paket), K16–K18. Perbaikan hasil audit commit `4373729`: hasil simpan belum pasti tidak lagi dilaporkan "tidak berubah" (FR-33 diperjelas), sesi berakhir mempertahankan isian (FR-37), klaim usaha & logo program tanpa sumber disembunyikan sampai dikonfirmasi (K16, K17). |
+| 0.8 | 19 November 2026 | **Integrasi cloud dev/staging.** Q-22 sebagian terjawab: proyek Supabase "PasarNila" dikonfirmasi pemilik sebagai lingkungan dev/staging (region production dan akun tetap terbuka). Migrasi paket diterapkan ke proyek itu; pendaftaran publik dinonaktifkan (AC-22). Kebutuhan bisnis tidak berubah. Rincian dan hasil uji: `ARCHITECTURE.md` Lampiran E. |

@@ -54,7 +54,7 @@ export default async function ProfilPage() {
   return (
     <div className="py-16 md:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading id="profil-page-judul" eyebrow="Profil usaha" title={businessName.name} />
+        <SectionHeading id="profil-page-judul" level="h1" eyebrow="Profil usaha" title={businessName.name} />
 
         <div className="mt-12 grid gap-10 md:grid-cols-[1.1fr_0.9fr] md:items-start">
           <div className="space-y-6 rounded-[1.75rem] border border-line bg-surface p-8 shadow-sm sm:p-10">

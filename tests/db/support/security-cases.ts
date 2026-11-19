@@ -224,8 +224,9 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
           () => db.query("update public.site_settings set business_name = 'Diretas'"),
           () => db.query("insert into public.articles (slug, title, body) values ('a-b', 'x', 'y')"),
           () => db.query("delete from public.articles where id = $1", [articleId]),
-          () => db.query("delete from public.site_settings"),
-          () => db.query("truncate public.articles"),
+          () => db.query("delete from public.site_settings where false"),
+          // Cloud verifies TRUNCATE via has_table_privilege above; never issue TRUNCATE there.
+          ...(db.kind === "pglite" ? [() => db.query("truncate public.articles")] : []),
         ];
         for (const attempt of attempts) {
           expect((await captureError(db, attempt))?.code).toBe("42501");
@@ -260,7 +261,7 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
     it("UPDATE kolom yang diizinkan menghasilkan 0 baris (RLS); kolom/aksi lain ditolak", async () => {
       const { db, outsiderSub } = ctx();
       await inRollbackTx(db, async () => {
-        await makeFixtures(db);
+        const { articleId } = await makeFixtures(db);
         const before = await one<{ title: string }>(db, "select title from public.articles where slug = 'artikel-1'");
         const nameBefore = await one<{ n: string }>(db, "select business_name as n from public.site_settings");
         await actAs(db, userActor(outsiderSub));
@@ -272,7 +273,7 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
           () => db.query("update public.articles set slug = 'baru' where slug = 'artikel-1'"),
           () => db.query("update public.products set stock_kg = 1"),
           () => db.query("insert into public.articles (slug, title, body) values ('a-b', 'x', 'y')"),
-          () => db.query("delete from public.articles"),
+          () => db.query("delete from public.articles where id = $1", [articleId]),
           () => db.query("insert into public.site_settings (id, business_name) values (false, 'Lain')"),
           () => db.query("select * from private.partner_admins"),
         ];
@@ -339,7 +340,7 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
           () => db.query("update public.articles set slug = 'baru' where id = $1", [articleId]),
           () => db.query("update public.articles set is_published = true where id = $1", [articleId]),
           () => db.query("insert into public.site_settings (id, business_name) values (false, 'Lain')"),
-          () => db.query("delete from public.site_settings"),
+          () => db.query("delete from public.site_settings where false"),
           () => db.query("update public.site_settings set updated_at = now()"),
           () => db.query("update public.products set stock_kg = 1, stock_price_confirmed_at = now()"),
           () => db.query("select * from private.partner_admins"),
@@ -553,7 +554,7 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
             ),
           () => db.query("update public.product_packages set price_total_idr = 1 where id = $1", [PKG_ID]),
           () => db.query("delete from public.product_packages where id = $1", [PKG_ID]),
-          () => db.query("truncate public.product_packages"),
+          ...(db.kind === "pglite" ? [() => db.query("truncate public.product_packages")] : []),
           () => db.query(CREATE, [publishedId]),
           () => db.query("select * from public.update_product_package($1, 'x', 1, 1)", [PKG_ID]),
           () => db.query("select * from public.delete_product_package($1)", [PKG_ID]),
@@ -580,7 +581,7 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
         }
         for (const attempt of [
           () => db.query("update public.product_packages set name = 'Diretas'"),
-          () => db.query("delete from public.product_packages"),
+          () => db.query("delete from public.product_packages where id = $1", [PKG_ID]),
         ]) {
           expect((await captureError(db, attempt))?.code).toBe("42501");
         }

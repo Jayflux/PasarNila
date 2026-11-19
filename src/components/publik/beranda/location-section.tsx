@@ -50,7 +50,7 @@ export function LocationSection() {
           ) : null}
         </div>
 
-        {address ? <MapEmbed address={address} /> : null}
+        {address ? <MapEmbed address={address} waitForViewport /> : null}
       </div>
     </section>
   );

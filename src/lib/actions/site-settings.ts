@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, updateTag } from "next/cache";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/public-client";
 
 import {
   recheckBusinessName,
@@ -20,7 +20,7 @@ import { settle } from "@/lib/write/outcome";
 
 const COLUMNS = "business_name, updated_at";
 
-function businessNameDb(supabase: SupabaseClient): BusinessNameDb {
+function businessNameDb(supabase: AppSupabaseClient): BusinessNameDb {
   return {
     update: (name) =>
       settle(() =>

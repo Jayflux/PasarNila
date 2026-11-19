@@ -20,6 +20,7 @@ export default async function PanelArtikelPage() {
     <div className="space-y-8">
       <SectionHeading
         id="panel-artikel-judul"
+        level="h1"
         eyebrow="Panel pengelolaan"
         title="Artikel"
         description="Ubah judul dan isi artikel yang sudah tersedia. Alamat artikel tidak berubah."

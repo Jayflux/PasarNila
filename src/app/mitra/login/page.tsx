@@ -24,7 +24,7 @@ export default async function LoginPage() {
   const businessName = await getBusinessName();
 
   return (
-    <div className="flex min-h-screen flex-col justify-center bg-cream px-4 py-12 sm:px-6 lg:px-8">
+    <main className="flex min-h-screen flex-col justify-center bg-cream px-4 py-12 sm:px-6 lg:px-8">
       <div className="text-center sm:mx-auto sm:w-full sm:max-w-md">
         <Link href="/" className="inline-block text-2xl font-bold tracking-tight text-deep" title="Kembali ke beranda">
           {businessName.name}
@@ -43,6 +43,6 @@ export default async function LoginPage() {
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

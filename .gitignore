@@ -49,3 +49,8 @@ supabase/.temp
 
 # laporan test lokal (wrapper RTK)
 /.vitest/
+
+# uji browser (sesi login, trace, screenshot, laporan Lighthouse) — jangan di-commit
+/.playwright/
+/test-results/
+/playwright-report/

@@ -32,6 +32,7 @@ export default async function KontakPage() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           id="kontak-page-judul"
+          level="h1"
           eyebrow="Kontak"
           title={`Hubungi ${businessName.name}`}
           description="Pertanyaan dan pemesanan dilayani lewat chat WhatsApp. Transaksi disepakati di sana; website ini tidak mencatat pesanan."
@@ -102,7 +103,7 @@ export default async function KontakPage() {
         {site.address ? (
           <section aria-labelledby="kontak-peta-judul" className="mt-12 rounded-[1.75rem] border border-line bg-surface p-6 shadow-sm">
             <h2 id="kontak-peta-judul" className="mb-4 text-lg font-bold text-ink">
-              Peta
+              Peta alamat usaha
             </h2>
             <MapEmbed address={site.address} className="aspect-[16/9] md:aspect-[21/9]" />
           </section>

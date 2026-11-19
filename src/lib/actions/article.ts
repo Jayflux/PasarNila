@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AppSupabaseClient } from "@/lib/supabase/public-client";
 
 import {
   recheckArticle,
@@ -17,7 +17,7 @@ import { settle } from "@/lib/write/outcome";
 
 const COLUMNS = "slug, title, body, updated_at";
 
-function articleDb(supabase: SupabaseClient): ArticleDb {
+function articleDb(supabase: AppSupabaseClient): ArticleDb {
   return {
     update: ({ slug, title, body }) =>
       settle(() =>

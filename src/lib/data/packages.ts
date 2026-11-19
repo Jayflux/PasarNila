@@ -1,11 +1,12 @@
 import "server-only";
 
 import { connection } from "next/server";
+import { cache } from "react";
 import { z } from "zod";
 
 import { numericColumn } from "@/lib/actions/core/shared";
 import { logReadError } from "@/lib/data/log";
-import { loadPublishedProduct, type PublicProductResult } from "@/lib/data/products";
+import { loadPublishedProduct, parsePublishedProduct, PRODUCT_COLUMNS, type PublicProductResult } from "@/lib/data/products";
 import { getPublicSupabaseClient, publicReadSignal } from "@/lib/supabase/public-client";
 import { createServerSupabaseClient } from "@/lib/supabase/server-client";
 
@@ -54,7 +55,7 @@ export function toCatalogPackage(row: z.infer<typeof packageRowSchema>): Catalog
 }
 
 function parsePackages(scope: string, data: unknown): PackagesResult {
-  const parsed = z.array(packageRowSchema).safeParse(data ?? []);
+  const parsed = z.array(packageRowSchema).safeParse(data);
   if (!parsed.success) {
     logReadError(scope, new Error("bentuk baris paket tidak sesuai skema"));
     return { status: "error" };
@@ -92,14 +93,30 @@ export type CatalogResult = {
   packages: PackagesResult | null;
 };
 
-/** Produk + paketnya untuk beranda, katalog, dan detail produk (satu sumber yang sama). */
-export async function loadPublishedCatalog(slug: string): Promise<CatalogResult> {
+/** Embed paket via FK: satu request tanpa cache lintas permintaan, dengan RLS yang sama. */
+export const loadPublishedCatalog = cache(async (slug: string): Promise<CatalogResult> => {
   await connection();
+  try {
+    const { data, error } = await getPublicSupabaseClient().from("products")
+      .select(`${PRODUCT_COLUMNS}, product_packages(${PACKAGE_COLUMNS})`)
+      .eq("slug", slug).eq("is_published", true)
+      .order("weight_kg", { referencedTable: "product_packages" })
+      .order("price_total_idr", { referencedTable: "product_packages" })
+      .order("created_at", { referencedTable: "product_packages" })
+      .order("id", { referencedTable: "product_packages" })
+      .abortSignal(publicReadSignal()).maybeSingle();
+    if (!error) {
+      const product = parsePublishedProduct(data);
+      return { product, packages: product.status === "ok" ? parsePackages("product_packages", data?.product_packages) : null };
+    }
+    logReadError("catalog", error);
+  } catch (error) {
+    logReadError("catalog", error);
+  }
+  // A failed package read must not hide stock/price if the product itself is readable.
   const product = await loadPublishedProduct(slug);
-  if (product.status !== "ok") return { product, packages: null };
-  const packages = await queryPackages(getPublicSupabaseClient(), product.product.id, "product_packages");
-  return { product, packages };
-}
+  return { product, packages: product.status === "ok" ? { status: "error" } : null };
+});
 
 /** Paket untuk panel mitra (sesi mitra; RLS mengizinkan mitra membaca semua paket). */
 export async function loadPackagesForPartner(productId: string): Promise<PackagesResult> {

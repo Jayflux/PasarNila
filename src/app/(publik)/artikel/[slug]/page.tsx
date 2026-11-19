@@ -77,6 +77,7 @@ async function ArticleDetailContent({ params }: { params: Promise<{ slug: string
   if (article.isPlaceholder) {
     return (
       <div className="rounded-[1.75rem] border border-line bg-surface p-8 sm:p-12">
+        <h1 className="mb-6 text-2xl font-bold tracking-tight text-ink sm:text-3xl">Artikel</h1>
         <Placeholder
           label="Isi artikel"
           note="Judul dan isi menunggu bahan dari pemilik usaha."
