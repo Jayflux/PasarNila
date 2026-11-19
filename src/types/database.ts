@@ -260,6 +260,34 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_product_photo: {
+        Args: {
+          p_image_alt?: string | null
+          p_image_path: string | null
+          p_product_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          image_alt: string | null
+          image_path: string | null
+          is_published: boolean
+          name: string
+          price_per_kg_idr: number | null
+          short_description: string | null
+          slug: string
+          sort_order: number
+          stock_kg: number | null
+          stock_price_confirmed_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never

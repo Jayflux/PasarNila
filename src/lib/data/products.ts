@@ -26,7 +26,7 @@ export const PRIMARY_PRODUCT_SLUG = "ikan-nila";
 export const PRIMARY_PRODUCT_FALLBACK_NAME = "Ikan Nila";
 
 export const PRODUCT_COLUMNS =
-  "id, slug, name, short_description, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
+  "id, slug, name, short_description, image_path, image_alt, stock_kg, price_per_kg_idr, stock_price_confirmed_at";
 
 /** PostgREST mengirim `numeric` sebagai angka JSON; string angka diterima sebagai cadangan. */
 const numericColumn = z.union([
@@ -42,6 +42,8 @@ const productRowSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   short_description: z.string().nullable(),
+  image_path: z.string().nullable().optional(),
+  image_alt: z.string().nullable().optional(),
   stock_kg: numericColumn.nullable(),
   price_per_kg_idr: z.number().int().nullable(),
   stock_price_confirmed_at: z.string().nullable(),
@@ -53,6 +55,8 @@ export type PublicProduct = {
   slug: string;
   name: string;
   shortDescription: string | null;
+  imagePath?: string | null;
+  imageAlt?: string | null;
   stockPrice: StoredStockPrice;
 };
 
@@ -99,7 +103,12 @@ export function parsePublishedProduct(data: unknown): PublicProductResult {
   return {
     status: "ok",
     product: {
-      id: row.id, slug: row.slug, name: row.name, shortDescription: row.short_description,
+      id: row.id,
+      slug: row.slug,
+      name: row.name,
+      shortDescription: row.short_description,
+      imagePath: row.image_path ?? null,
+      imageAlt: row.image_alt ?? null,
       stockPrice: { stockKg: row.stock_kg, pricePerKgIdr: row.price_per_kg_idr, confirmedAt: row.stock_price_confirmed_at },
     },
   };
@@ -110,6 +119,8 @@ export type PartnerProduct = {
   slug: string;
   name: string;
   shortDescription: string | null;
+  imagePath: string | null;
+  imageAlt: string | null;
   stockPrice: StoredStockPrice;
 };
 
@@ -153,6 +164,8 @@ export async function loadProductForPartner(slug: string): Promise<PartnerProduc
         slug: row.slug,
         name: row.name,
         shortDescription: row.short_description,
+        imagePath: row.image_path ?? null,
+        imageAlt: row.image_alt ?? null,
         stockPrice: {
           stockKg: row.stock_kg,
           pricePerKgIdr: row.price_per_kg_idr,

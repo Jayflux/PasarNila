@@ -87,8 +87,31 @@ export function ProductDescription({ description, className = "" }: { descriptio
   );
 }
 
-/** Foto produk belum diberikan klien (K3): penanda jelas, bukan gambar yang menyerupai foto asli. */
-export function ProductMedia({ className = "min-h-48 md:min-h-72" }: { className?: string }) {
+/** Foto produk dari database atau placeholder bila belum ada (PRD K3, Q-12). */
+export function ProductMedia({
+  imagePath,
+  imageAlt,
+  productName = "Ikan Nila",
+  className = "min-h-48 md:min-h-72",
+}: {
+  imagePath?: string | null;
+  imageAlt?: string | null;
+  productName?: string;
+  className?: string;
+}) {
+  if (imagePath) {
+    return (
+      <div className="relative flex items-center justify-center overflow-hidden bg-accent-soft/30">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imagePath}
+          alt={imageAlt || `Foto ${productName}`}
+          className={`h-full w-full object-cover ${className}`}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-accent-soft/50 p-4 sm:p-6">
       <Placeholder

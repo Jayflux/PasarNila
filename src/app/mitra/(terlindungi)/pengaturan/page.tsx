@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const instant = false;
+
 /**
  * Pengaturan nama usaha (PRD §12.7, AC-45–AC-50). Formulir diisi nama TERSIMPAN; bila pembacaan gagal,
  * formulir tidak ditampilkan agar nama cadangan "Ikan Nila" tidak tersimpan menimpa nama asli.

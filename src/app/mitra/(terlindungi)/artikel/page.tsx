@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const instant = false;
+
 /** Daftar dua artikel yang dapat diedit (PRD FR-22, AC-39: tanpa tombol tambah/hapus). */
 export default async function PanelArtikelPage() {
   const result = await loadArticlesForPartner();

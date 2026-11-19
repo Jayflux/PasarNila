@@ -124,6 +124,7 @@ describe("PGlite — migrasi & rekonsiliasi", () => {
       "20261118000005_rpc_functions.sql",
       "20261118000006_initial_content.sql",
       "20261119000001_product_packages.sql",
+      "20261119000002_product_photo.sql",
     ]);
   });
 

@@ -110,6 +110,7 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
         { fn: "public.current_user_is_partner()", anon: false, auth: true },
         { fn: "public.delete_product_package(uuid)", anon: false, auth: true },
         { fn: "public.update_product_package(uuid,text,numeric,numeric)", anon: false, auth: true },
+        { fn: "public.update_product_photo(uuid,text,text)", anon: false, auth: true },
       ]);
     });
 
@@ -785,6 +786,63 @@ export function defineDbSecuritySuite(label: string, getContext: () => SuiteCont
         );
         expect(error?.code).toBe("23514");
         expect(error?.message).toContain(constraint);
+      });
+    });
+  });
+
+  describe(`${label} — RPC update_product_photo`, () => {
+    const partner = () => {
+      const sub = ctx().partnerSub;
+      if (!sub) throw new Error("Allowlist mitra kosong; kasus mitra tidak dapat dijalankan");
+      return sub;
+    };
+
+    it("anon tidak dapat memanggil update_product_photo", async () => {
+      const { db } = ctx();
+      await inRollbackTx(db, async () => {
+        const { productId } = await makeFixtures(db);
+        await actAs(db, ANON);
+        const err = await captureError(db, () =>
+          db.query("select * from public.update_product_photo($1, 'data:image/png;base64,test', 'Alt')", [productId]),
+        );
+        expect(err?.code).toBe("42501");
+      });
+    });
+
+    it("akun non-mitra ditolak forbidden", async () => {
+      const { db, outsiderSub } = ctx();
+      await inRollbackTx(db, async () => {
+        const { productId } = await makeFixtures(db);
+        await actAs(db, userActor(outsiderSub));
+        const err = await captureError(db, () =>
+          db.query("select * from public.update_product_photo($1, 'data:image/png;base64,test', 'Alt')", [productId]),
+        );
+        expect(err).toMatchObject({ code: "42501", message: "forbidden" });
+      });
+    });
+
+    it("mitra dapat memperbarui foto produk dan menghapus foto tanpa mengubah stock_price_confirmed_at", async () => {
+      const { db } = ctx();
+      await inRollbackTx(db, async () => {
+        const { productId } = await makeFixtures(db);
+        const prevConfirmedAt = await confirmedAt(db, productId);
+        await actAs(db, userActor(partner()));
+
+        const res = await one<{ image_path: string; image_alt: string }>(
+          db,
+          "select image_path, image_alt from public.update_product_photo($1, 'data:image/png;base64,abc', 'Foto Nila')",
+          [productId],
+        );
+        expect(res).toEqual({ image_path: "data:image/png;base64,abc", image_alt: "Foto Nila" });
+        expect(await confirmedAt(db, productId)).toBe(prevConfirmedAt);
+
+        const removed = await one<{ image_path: string | null; image_alt: string | null }>(
+          db,
+          "select image_path, image_alt from public.update_product_photo($1, null, null)",
+          [productId],
+        );
+        expect(removed).toEqual({ image_path: null, image_alt: null });
+        expect(await confirmedAt(db, productId)).toBe(prevConfirmedAt);
       });
     });
   });

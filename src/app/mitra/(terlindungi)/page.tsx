@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PanelLoadError } from "@/components/panel/panel-load-error";
+import { ProductPhotoForm } from "@/components/panel/product-photo-form";
 import { StockPriceForm } from "@/components/panel/stock-price-form";
 import { SectionHeading } from "@/components/publik/section-heading";
 import {
@@ -14,6 +15,8 @@ export const metadata: Metadata = {
   title: "Stok & Harga – Panel Mitra",
   robots: { index: false, follow: false },
 };
+
+export const instant = false;
 
 /** Panel stok & harga (PRD FR-17–FR-21, AC-25). */
 export default async function PanelDashboardPage() {
@@ -67,6 +70,12 @@ export default async function PanelDashboardPage() {
         initialPriceIdr={product.stockPrice.pricePerKgIdr}
         initialConfirmedAt={confirmedAt}
         initialConfirmedAtLabel={confirmedAt ? formatWib(confirmedAt) : "Belum pernah dikonfirmasi"}
+      />
+      <ProductPhotoForm
+        productId={product.id}
+        productName={product.name ?? PRIMARY_PRODUCT_FALLBACK_NAME}
+        initialImagePath={product.imagePath}
+        initialImageAlt={product.imageAlt}
       />
     </div>
   );

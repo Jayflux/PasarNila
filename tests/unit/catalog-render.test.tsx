@@ -145,4 +145,21 @@ describe("pesan WhatsApp mengikuti status stok", () => {
     expect(html).not.toContain("wa.me");
     expect(html).toContain("Nomor WhatsApp belum tersedia");
   });
+
+  it("menampilkan foto produk asli jika imagePath tersedia", async () => {
+    catalog.mockResolvedValue({
+      product: {
+        status: "ok",
+        product: {
+          ...PRODUCT,
+          imagePath: "https://example.test/ikan.jpg",
+          imageAlt: "Ikan Nila Segar Kolam",
+        },
+      },
+      packages: { status: "ok", packages: [] },
+    });
+    const html = renderToStaticMarkup(await ProductSummaryCard({}));
+    expect(html).toContain('src="https://example.test/ikan.jpg"');
+    expect(html).toContain('alt="Ikan Nila Segar Kolam"');
+  });
 });

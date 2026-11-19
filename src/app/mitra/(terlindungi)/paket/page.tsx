@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const instant = false;
+
 /**
  * Pengelolaan paket katalog (PRD §12.8, AC-53–AC-60). Bila produk atau paket gagal dimuat, formulir
  * tidak ditampilkan (bukan dianggap kosong), agar mitra tidak menambah paket ganda tanpa melihat daftar.

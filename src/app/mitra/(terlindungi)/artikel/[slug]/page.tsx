@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+export const instant = false;
+
 /** Editor artikel (PRD FR-23, FR-27, AC-37–AC-41). */
 export default async function EditArticlePage({ params }: PageProps) {
   const { slug } = await params;
