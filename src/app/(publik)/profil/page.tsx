@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { MapEmbed } from "@/components/publik/map-embed";
@@ -67,7 +68,19 @@ export default async function ProfilPage() {
                 note="Profil lengkap akan diisi dengan bahan dari pemilik usaha."
               />
             )}
-            <Placeholder label="Foto usaha" note="Foto asli menyusul dari pemilik usaha." />
+            <figure className="relative overflow-hidden rounded-2xl border border-line shadow-xs">
+              <Image
+                src="/images/kolam-ikan-nila.jpg"
+                alt="Foto usaha kolam budidaya ikan nila"
+                width={1024}
+                height={576}
+                className="h-auto w-full object-cover"
+                sizes="(min-width: 768px) 50vw, 100vw"
+              />
+              <figcaption className="absolute bottom-3 left-3 rounded-full bg-deep-strong/85 px-3 py-1 text-xs font-medium text-on-deep backdrop-blur-xs">
+                Kolam budidaya ikan nila
+              </figcaption>
+            </figure>
             <div className="flex flex-wrap gap-3 pt-2">
               <Link href="/produk" className={buttonClass("primary")}>
                 Lihat stok &amp; harga
