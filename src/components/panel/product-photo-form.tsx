@@ -52,8 +52,8 @@ export function ProductPhotoForm({
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setClientError("Ukuran foto maksimal 2 MB.");
+    if (file.size > 1 * 1024 * 1024) {
+      setClientError("Ukuran foto maksimal 1 MB.");
       event.target.value = "";
       setSelectedFile(null);
       setPreviewUrl(null);
@@ -144,7 +144,7 @@ export function ProductPhotoForm({
             Foto Produk
           </h2>
           <p className="mt-1 text-sm text-ink-muted">
-            Foto yang tampil di kartu ringkasan beranda dan halaman detail katalog. Format JPG, PNG, atau WebP (maks. 2 MB).
+            Foto yang tampil di kartu ringkasan beranda dan halaman detail katalog. Format JPG, PNG, atau WebP (maks. 1 MB).
           </p>
         </div>
       </div>

@@ -12,7 +12,7 @@ type Props = { businessName: BusinessName };
 
 export function ProfileSection({ businessName }: Props) {
   const facts: ReadonlyArray<{ term: string; detail: React.ReactNode }> = [
-    { term: "Produk", detail: "Ikan nila (satu produk)" },
+    { term: "Produk", detail: "Ikan nila merah" },
     {
       // Alamat lengkap ada di bagian Lokasi; di sini cukup ringkasannya.
       term: "Lokasi",

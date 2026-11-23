@@ -87,6 +87,23 @@ describe("Server Action: Update Foto Produk", () => {
     expect(db.updatePhoto).not.toHaveBeenCalled();
   });
 
+  it("menolak ukuran file foto lebih dari 1 MB", async () => {
+    const db = fakeDb();
+    const f = new FormData();
+    f.append("productId", PRODUCT_ID);
+    const oversizedBytes = new Uint8Array(1024 * 1024 + 10);
+    const file = new File([oversizedBytes], "foto-besar.jpg", { type: "image/jpeg" });
+    f.append("photo", file);
+
+    const result = await updateProductPhoto(f, {
+      gate: partnerGate(db),
+    });
+
+    expect(result.state).toBe("invalid");
+    expect(result.message).toContain("Ukuran foto maksimal 1 MB");
+    expect(db.updatePhoto).not.toHaveBeenCalled();
+  });
+
   it("menolak bila tidak ada file atau dataUrl yang dipilih", async () => {
     const db = fakeDb();
     const f = form({ productId: PRODUCT_ID });

@@ -31,7 +31,7 @@ export default async function ProfilPage() {
 
   const facts: ReadonlyArray<{ term: string; detail: React.ReactNode }> = [
     { term: "Nama usaha", detail: businessName.name },
-    { term: "Produk", detail: "Ikan nila (satu produk)" },
+    { term: "Produk", detail: "Ikan nila merah" },
     { term: "Lokasi", detail: site.shortLocation ?? site.address ?? <Placeholder label="Lokasi" /> },
     { term: "Pemesanan", detail: "Lewat chat WhatsApp; transaksi disepakati di sana" },
     {

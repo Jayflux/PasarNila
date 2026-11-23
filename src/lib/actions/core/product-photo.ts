@@ -32,7 +32,7 @@ const photoRowSchema = z.object({
 });
 
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export const MAX_PHOTO_BYTES = 2 * 1024 * 1024; // 2 MB
+export const MAX_PHOTO_BYTES = 1 * 1024 * 1024; // 1 MB
 
 export async function updateProductPhoto(
   form: FormData,
@@ -76,8 +76,8 @@ export async function updateProductPhoto(
     if (file.size > MAX_PHOTO_BYTES) {
       return {
         state: "invalid",
-        message: "Ukuran foto maksimal 2 MB.",
-        fieldErrors: { photo: "Ukuran foto maksimal 2 MB." },
+        message: "Ukuran foto maksimal 1 MB.",
+        fieldErrors: { photo: "Ukuran foto maksimal 1 MB." },
         operation: "update",
       };
     }

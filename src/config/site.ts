@@ -26,14 +26,12 @@ export type SiteInfo = {
 export const site: SiteInfo = {
   fallbackDisplayName: "Ikan Nila",
   tagline: null,
-  profile: null,
-  // Dikonfirmasi klien, PRD §1.1.
-  address:
-    "Jl. Setia Bersama, RT 05/RW 11, Kelurahan Meruyung, Kecamatan Limo, " +
-    "Kota Depok, Provinsi Jawa Barat",
+  profile:
+    "Juki Fish Farm adalah usaha pembesaran ikan nila merah milik Bapak Ahmad Marzuki di Kelurahan Meruyung, Kecamatan Limo, Depok. Usaha ini sudah berjalan sekitar empat tahun dengan mengelola 10 kolam di lahan sekitar 2.000 m², dan ikannya dibesarkan sampai ukuran konsumsi. Selama ini hasil panen dijual lewat pengepul dan pasar lokal, dan seiring permintaan ikan konsumsi di Depok yang terus naik, Juki Fish Farm kini membuka penjualan langsung ke pelanggan. Untuk menjaga kualitas dan jumlah ikan, usaha ini bekerja sama dengan tim pengabdian UPNVJ lewat program Aksara Peduli, mulai dari pembenahan aerasi kolam agar oksigen lebih merata hingga penguatan pengelolaan usaha dan pemasaran digital.",
+  address: "Jl. Swadaya Raya RT 05/11, Kelurahan Meruyung, Kecamatan Limo, Kota Depok, Jawa Barat",
   // Ringkasan dari alamat di atas (PRD §1.1, §2.1).
   shortLocation: "Meruyung, Depok",
   mapsUrl: "https://share.google/u0j1tZY5Q6MoMTD5P",
-  operatingHours: null,
+  operatingHours: [{ day: "Setiap hari", hours: "07:00 – 17:00" }],
   socials: [],
 };
