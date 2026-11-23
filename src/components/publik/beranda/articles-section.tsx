@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { Placeholder } from "@/components/publik/placeholder";
 import { SectionHeading } from "@/components/publik/section-heading";
+import { buttonClass } from "@/components/ui/button-styles";
 import { HOME_SECTIONS } from "@/config/navigation";
 import { loadPublishedArticles, MAX_PUBLIC_ARTICLES } from "@/lib/data/articles";
 
@@ -10,8 +12,7 @@ import { loadPublishedArticles, MAX_PUBLIC_ARTICLES } from "@/lib/data/articles"
  * Paling banyak dua kartu. Artikel bertanda [PLACEHOLDER] tampil sebagai placeholder yang jelas,
  * bukan menampilkan teks penanda mentahnya.
  *
- * TAHAP BERIKUTNYA: setelah route /artikel/[slug] dibuat, jadikan kartu artikel asli sebagai tautan
- * ke `/artikel/${slug}`. Sekarang kartu belum bertaut agar tidak ada tautan ke halaman 404.
+ * Kartu artikel asli memiliki tautan "Baca selengkapnya" ke `/artikel/${slug}`.
  */
 export function ArticlesSection() {
   return (
@@ -66,6 +67,11 @@ async function ArticleCards() {
               {article.excerpt ? (
                 <p className="mt-3 leading-7 text-ink-muted">{article.excerpt}</p>
               ) : null}
+              <div className="mt-auto pt-5">
+                <Link href={`/artikel/${article.slug}`} className={buttonClass("secondary", "sm")}>
+                  Baca selengkapnya
+                </Link>
+              </div>
             </article>
           )}
         </li>
